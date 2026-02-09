@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Button, Card, Pill } from "../components/ui";
+import { Button, Card} from "../components/ui";
 
 export default function ChooseRole() {
   const [role, setRole] = useState("client");
@@ -11,11 +11,7 @@ export default function ChooseRole() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="text-2xl font-semibold">Welcome</h2>
-          <p className="mt-2 text-sm text-zinc-600">
-            Choose what you want to do. We’ll show the right signup form.
-          </p>
         </div>
-        <Pill>Fast • Simple • Clear</Pill>
       </div>
 
       <div className="mt-6 grid gap-3">

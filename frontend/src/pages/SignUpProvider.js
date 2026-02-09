@@ -37,9 +37,6 @@ export default function SignUpProvider() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="text-2xl font-semibold">Create a provider account</h2>
-          <p className="mt-2 text-sm text-zinc-600">
-            Receive job requests and send quotes to clients.
-          </p>
         </div>
         <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs text-zinc-700">
           Provider
@@ -49,7 +46,7 @@ export default function SignUpProvider() {
       <form className="mt-6 space-y-4" onSubmit={onSubmit}>
         <div>
           <Label htmlFor="name">Full name</Label>
-          <Input id="name" placeholder="John Doe" value={name} onChange={(e) => setName(e.target.value)} required />
+          <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required />
         </div>
 
         <div>
@@ -80,7 +77,7 @@ export default function SignUpProvider() {
 
         <div>
           <Label htmlFor="city">City / Service area</Label>
-          <Input id="city" placeholder="Sousse" value={city} onChange={(e) => setCity(e.target.value)} required />
+          <Input id="city" value={city} onChange={(e) => setCity(e.target.value)} required />
         </div>
 
         <div>
@@ -110,10 +107,6 @@ export default function SignUpProvider() {
         <Button loading={loading} disabled={loading}>
           Create account
         </Button>
-
-        <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-700">
-          After signup, we’ll guide you through a short onboarding (profile, pricing, photos).
-        </div>
       </form>
 
       <div className="mt-6 text-center text-sm text-zinc-600">

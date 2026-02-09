@@ -34,9 +34,6 @@ export default function SignUpClient() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="text-2xl font-semibold">Create a client account</h2>
-          <p className="mt-2 text-sm text-zinc-600">
-            Post a request and receive offers from providers.
-          </p>
         </div>
         <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs text-zinc-700">
           Client
@@ -46,7 +43,7 @@ export default function SignUpClient() {
       <form className="mt-6 space-y-4" onSubmit={onSubmit}>
         <div>
           <Label htmlFor="name">Full name</Label>
-          <Input id="name" placeholder="John Doe" value={name} onChange={(e) => setName(e.target.value)} required />
+          <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required />
         </div>
 
         <div>
@@ -56,7 +53,7 @@ export default function SignUpClient() {
 
         <div>
           <Label htmlFor="city">City (optional)</Label>
-          <Input id="city" placeholder="Sousse" value={city} onChange={(e) => setCity(e.target.value)} />
+          <Input id="city" value={city} onChange={(e) => setCity(e.target.value)} />
           <Hint>This helps us match nearby providers.</Hint>
         </div>
 
