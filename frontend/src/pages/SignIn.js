@@ -121,7 +121,7 @@ export default function SignIn() {
 
       <div className="mt-6 text-center text-sm text-zinc-600">
         Don&apos;t have an account?{" "}
-        <Link className="font-semibold text-zinc-900 hover:underline" to="/">
+        <Link className="font-semibold text-zinc-900 hover:underline" to="/get-started">
           Sign up
         </Link>
       </div>

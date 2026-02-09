@@ -19,7 +19,7 @@ function Logo() {
 
 export default function AuthLayout() {
   const location = useLocation();
-  const isAuth = ["/", "/sign-in", "/sign-up/client", "/sign-up/provider"].includes(
+  const isAuth = ["/get-started", "/sign-in", "/sign-up/client", "/sign-up/provider"].includes(
     location.pathname
   );
 
