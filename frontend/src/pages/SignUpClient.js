@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button, Card, ErrorText, Hint, Input, Label } from "../components/ui";
 import { signUpClient } from "../lib/authApi";
 import { saveSession } from "../lib/session";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function SignUpClient() {
   const navigate = useNavigate();
@@ -74,7 +75,7 @@ export default function SignUpClient() {
               onClick={() => setShow((s) => !s)}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-zinc-600 hover:text-zinc-900"
             >
-              {show ? "Hide" : "Show"}
+              {show ? <Eye/> : <EyeOff/>}
             </button>
           </div>
         </div>

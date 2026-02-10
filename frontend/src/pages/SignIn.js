@@ -1,9 +1,9 @@
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Button, Card, Divider, ErrorText, Hint, Input, Label } from "../components/ui";
+import { Button, Card, Divider, ErrorText, Input, Label } from "../components/ui";
 import { signIn } from "../lib/authApi";
 import { saveSession } from "../lib/session";
-
+import { Eye, EyeOff } from "lucide-react";
 export default function SignIn() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("client@demo.com");
@@ -11,15 +11,7 @@ export default function SignIn() {
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
-  const demoAccounts = useMemo(
-    () => [
-      { title: "Client Account", email: "client@demo.com", password: "demo123" },
-      { title: "Provider Account", email: "provider@demo.com", password: "demo123" },
-    ],
-    []
-  );
-
+  
   async function onSubmit(e) {
     e.preventDefault();
     setError("");
@@ -50,8 +42,7 @@ export default function SignIn() {
           <Input
             id="email"
             type="email"
-            placeholder="you@example.com"
-            value={email}
+            placeholder="Enter your Email"
             onChange={(e) => setEmail(e.target.value)}
             autoComplete="email"
             required
@@ -65,7 +56,6 @@ export default function SignIn() {
               id="password"
               type={show ? "text" : "password"}
               placeholder="Enter your password"
-              value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="current-password"
               required
@@ -76,10 +66,9 @@ export default function SignIn() {
               onClick={() => setShow((s) => !s)}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-zinc-600 hover:text-zinc-900"
             >
-              {show ? "Hide" : "Show"}
+              {show ? <Eye/> : <EyeOff/>}
             </button>
           </div>
-          <Hint>Tip: Use demo accounts below to test quickly.</Hint>
         </div>
 
         <ErrorText>{error}</ErrorText>
@@ -98,27 +87,7 @@ export default function SignIn() {
           </button>
         </div>
       </form>
-
       <Divider />
-
-      <div>
-        <div className="text-sm font-medium text-zinc-800">Demo accounts</div>
-        <div className="mt-3 grid gap-3">
-          {demoAccounts.map((a) => (
-            <DemoCard
-              key={a.title}
-              title={a.title}
-              email={a.email}
-              password={a.password}
-              onUse={() => {
-                setEmail(a.email);
-                setPassword(a.password);
-              }}
-            />
-          ))}
-        </div>
-      </div>
-
       <div className="mt-6 text-center text-sm text-zinc-600">
         Don&apos;t have an account?{" "}
         <Link className="font-semibold text-zinc-900 hover:underline" to="/get-started">
@@ -126,41 +95,5 @@ export default function SignIn() {
         </Link>
       </div>
     </Card>
-  );
-}
-
-function DemoCard({ title, email, password, onUse }) {
-  async function copy(text) {
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch {
-      // ignore
-    }
-  }
-
-  return (
-    <div className="rounded-2xl border border-zinc-200 p-4">
-      <div className="flex items-center justify-between gap-3">
-        <div className="font-semibold">{title}</div>
-        <button
-          onClick={onUse}
-          className="text-xs font-medium text-zinc-700 hover:text-zinc-900 underline"
-        >
-          Use
-        </button>
-      </div>
-      <div className="mt-2 text-sm text-zinc-600 flex items-center justify-between">
-        <span>Email: {email}</span>
-        <button onClick={() => copy(email)} className="text-xs hover:underline">
-          Copy
-        </button>
-      </div>
-      <div className="text-sm text-zinc-600 flex items-center justify-between">
-        <span>Password: {password}</span>
-        <button onClick={() => copy(password)} className="text-xs hover:underline">
-          Copy
-        </button>
-      </div>
-    </div>
   );
 }

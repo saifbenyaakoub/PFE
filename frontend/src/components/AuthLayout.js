@@ -2,18 +2,28 @@ import React from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faScrewdriverWrench } from "@fortawesome/free-solid-svg-icons";
-
+import { useNavigate } from "react-router-dom";
 
 function Logo() {
+  const navigate = useNavigate();
   return (
-    <div className="flex items-center gap-2 text-2xl font-bold text-zinc-900 tracking-[2px] font-[fantasy] no-underline">
-      <div>
-        <FontAwesomeIcon icon={faScrewdriverWrench} className="text-sm" />
-      </div>
-      <div>
-        <div className="font-fantasy leading-5">FixHub</div>
-      </div>
-    </div>
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "0.5rem",
+        fontSize: "2rem",
+        fontWeight: 700,
+        color: "#18181b",
+        textDecoration: "none",
+        letterSpacing: "2px",
+        fontFamily: "fantasy",
+        cursor: "pointer",
+      }}
+      onClick={() => navigate('./HomePage')}
+    >
+      <FontAwesomeIcon icon={faScrewdriverWrench} />FixHub
+    </div >
   );
 }
 
@@ -27,11 +37,13 @@ export default function AuthLayout() {
 
   return (
     <div className="min-h-full">
-      <div className="mx-auto max-w-6xl px-4 py-10">
-        <div className="mb-8 flex items-center justify-between">
-          <Logo />
+      <div >
+        <div className="mx-auto flex max-w-[85rem] items-center py-5">
+          <div className="flex items-center gap-2 text-2xl font-bold text-zinc-900">
+            <Logo />
+          </div>
         </div>
-
+        <div className="h-px w-full bg-zinc-200" />
         <div className="min-h-screen flex items-center justify-center px-4 py-10">
           <div className="w-full max-w-md sm:max-w-lg">
             <Outlet />
@@ -41,15 +53,6 @@ export default function AuthLayout() {
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-function Feature({ title, desc }) {
-  return (
-    <div className="rounded-2xl border p-4">
-      <div className="font-medium">{title}</div>
-      <div className="text-sm text-zinc-600 mt-1">{desc}</div>
     </div>
   );
 }
