@@ -1,0 +1,153 @@
+/* =========================
+   SERVICES PAGE
+========================= */
+
+.services-page {
+  padding: 80px 60px;
+  background-color: #f8f9fb;
+  min-height: 100vh;
+  text-align: center;
+}
+
+.services-page h1 {
+  font-size: 42px;
+  margin-bottom: 10px;
+}
+
+.services-page .subtitle {
+  color: #6b7280;
+  font-size: 18px;
+  margin-bottom: 40px;
+}
+
+/* =========================
+   SEARCH INPUT
+========================= */
+
+.search-input {
+  width: 350px;
+  max-width: 90%;
+  padding: 14px 18px;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  font-size: 15px;
+  margin-bottom: 30px;
+  outline: none;
+  transition: 0.2s ease;
+}
+
+.search-input:focus {
+  border-color: #0b0b23;
+  box-shadow: 0 0 0 3px rgba(11, 11, 35, 0.08);
+}
+
+/* =========================
+   FILTER BUTTONS
+========================= */
+
+.filter-buttons {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 15px;
+  margin-bottom: 50px;
+}
+
+.filter {
+  padding: 8px 18px;
+  border-radius: 20px;
+  border: 1px solid #e5e7eb;
+  background: white;
+  cursor: pointer;
+  font-size: 14px;
+  transition: 0.2s ease;
+}
+
+.filter:hover {
+  background: #f3f4f6;
+}
+
+.active-filter {
+  background: #0b0b23;
+  color: white;
+  border: none;
+}
+
+/* =========================
+   SERVICES GRID
+========================= */
+
+.services-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 30px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* =========================
+   SERVICE CARD
+========================= */
+
+.service-card {
+  background: white;
+  padding: 22px;
+  border-radius: 20px;
+  border: 1px solid #eee;
+  text-align: left;
+  transition: 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.service-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
+}
+
+/* Fake image placeholder */
+.service-img {
+  height: 170px;
+  background: #e5e7eb;
+  border-radius: 14px;
+  margin-bottom: 18px;
+}
+
+/* Title */
+.service-card h3 {
+  font-size: 18px;
+  margin-bottom: 8px;
+}
+
+/* Description */
+.service-card p {
+  color: #6b7280;
+  font-size: 14px;
+  margin-bottom: 6px;
+}
+
+/* Price */
+.price {
+  font-weight: bold;
+  color: #0b0b23;
+  margin: 10px 0;
+  font-size: 16px;
+}
+
+/* Button inside card */
+
+.service-card button {
+  margin-top: 15px;
+  background: #0b0b23;
+  color: white;
+  border: none;
+  padding: 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.service-card button:hover {
+  opacity: 0.9;
+}
