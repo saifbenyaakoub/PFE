@@ -3,19 +3,17 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faHammer, faWrench, faRuler, faPaintBrush, faFaucet, faSprayCan, faTaxi ,faCar,
-  faBroom,faLeaf,faBox,faUtensils,faGear, faUser
+  faBroom,faLeaf,faBox,faUtensils,faGear, faUser, faStar, faBriefcase,
 } from '@fortawesome/free-solid-svg-icons';
 import { getSession } from "../lib/session";
 import "./services.css"
 import ServicesFilter from "./ServicesFilter";
 function ServicesPage() {
-  const [services, setServices] = useState([]);
+  const [items, setItems] = useState([]);
+  const [viewMode, setViewMode] = useState("services"); // 'services' or 'tasks'
   const [searchTerm, setSearchTerm] = useState("");
-  const [radius, setRadius] = useState(50);
   const [selectedCategory, setSelectedCategory] = useState("");
-  const [selectedPriceRange, setSelectedPriceRange] = useState("");
   const [selectedCity, setSelectedCity] = useState("");
-  const [userLocation, setUserLocation] = useState(null);
   const navigate = useNavigate();
 
   const iconDetails = [
@@ -51,64 +49,34 @@ function ServicesPage() {
   ];
 
   useEffect(() => {
-    fetch("http://localhost:5000/services")
+    const endpoint = viewMode === "services" ? "http://localhost:5000/services" : "http://localhost:5000/tasks";
+    fetch(endpoint)
       .then(res => res.json())
-      .then(data => setServices(data))
+      .then(data => setItems(data))
       .catch(err => console.error(err));
-  }, []);
+  }, [viewMode]);
 
-  useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setUserLocation({ lat: position.coords.latitude, lng: position.coords.longitude });
-        },
-        (error) => console.error("Error getting location:", error)
-      );
-    }
-  }, []);
 
-  const handleBookNow = (service) => {
+  const handleAction = (item) => {
     const session = getSession();
     if (session) {
       // User is signed in, proceed with booking logic.
-      alert(`Initiating booking for: ${service.title}`);
+      alert(`Initiating ${viewMode === 'services' ? 'booking' : 'application'} for: ${item.title}`);
     } else {
       // User is not signed in, redirect to sign-in page.
       navigate('/sign-in');
     }
   };
 
-  const calculateDistance = (lat1, lon1, lat2, lon2) => {
-    const R = 6371; // Radius of the earth in km
-    const dLat = (lat2 - lat1) * (Math.PI / 180);
-    const dLon = (lon2 - lon1) * (Math.PI / 180);
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
-      Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  };
-
-  const filteredServices = services.map(service => {
-    if (userLocation && service.latitude && service.longitude) {
-      return { ...service, distance: calculateDistance(userLocation.lat, userLocation.lng, service.latitude, service.longitude) };
-    }
-    return service;
-  }).filter(service => {
-    const matchesSearch = service.title && service.title.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory ? service.category === selectedCategory : true;
-    const price = service.price || 0;
-    const matchesPrice = selectedPriceRange === "low" ? price < 50 :
-                         selectedPriceRange === "medium" ? price >= 50 && price <= 150 :
-                         selectedPriceRange === "high" ? price > 150 : true;
-    const matchesRadius = service.distance ? service.distance <= radius : true;
-    const matchesCity = selectedCity ? service.governorate === selectedCity : true;
-    return matchesSearch && matchesCategory && matchesPrice && matchesRadius && matchesCity;
+  const filteredItems = items.filter(item => {
+    const matchesSearch = item.title && item.title.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = selectedCategory ? item.category === selectedCategory : true;    
+    const matchesCity = selectedCity ? item.governorate === selectedCity : true;
+    return matchesSearch && matchesCategory && matchesCity;
   });
 
-  const uniqueCategories = [...new Set(services.map(s => s.category).filter(Boolean))];
+  const uniqueCategories = [...new Set(items.map(s => s.category).filter(Boolean))];
+  const isService = viewMode === 'services';
 
   return (
     <div className="text-center p-4 md:p-10">
@@ -127,14 +95,32 @@ function ServicesPage() {
           );
         })}
         <div className="banner-content">
-          <h1>Browse Services</h1>
-          <p className="subtitle">Find the best professionals for your needs</p>
+          <h1>{isService ? "Browse Services" : "Browse Tasks"}</h1>
+          <p className="subtitle">{isService ? "Find the best professionals for your needs" : "Find jobs that match your skills"}</p>
+        </div>
+      </div>
+
+      {/* Toggle Button */}
+      <div className="flex justify-center mb-8">
+        <div className="bg-gray-100 p-1 rounded-full inline-flex">
+          <button
+            className={`px-6 py-2 rounded-full text-sm font-medium transition-all ${isService ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            onClick={() => setViewMode('services')}
+          >
+            Services
+          </button>
+          <button
+            className={`px-6 py-2 rounded-full text-sm font-medium transition-all ${!isService ? 'bg-white text-green-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            onClick={() => setViewMode('tasks')}
+          >
+            Tasks
+          </button>
         </div>
       </div>
 
       <input
         type="text"
-        placeholder="Search by service title..."
+        placeholder={`Search by ${isService ? 'service' : 'task'} title...`}
         className="search-input"
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
@@ -143,12 +129,8 @@ function ServicesPage() {
         <div className="flex flex-col md:flex-row min-h-screen gap-6">
   {/* Sidebar */}
   <ServicesFilter
-    radius={radius}
-    setRadius={setRadius}
     selectedCategory={selectedCategory}
     setSelectedCategory={setSelectedCategory}
-    selectedPriceRange={selectedPriceRange}
-    setSelectedPriceRange={setSelectedPriceRange}
     categories={uniqueCategories}
     selectedCity={selectedCity}
     setSelectedCity={setSelectedCity}
@@ -157,37 +139,36 @@ function ServicesPage() {
 
   {/* Main content */}
   <main className="w-full md:w-3/4 p-2 md:p-6">
-    <h1 className="text-2xl font-bold mb-4 text-left">{filteredServices.length} Services Available</h1>
+    <h1 className="text-2xl font-bold mb-4 text-left">{filteredItems.length} {isService ? "Services" : "Tasks"} Available</h1>
 
     {/* Cards */}
     <div className="space-y-4">
-      {filteredServices.map((service, index) => (
-        <div key={service._id || index} className="flex flex-col md:flex-row items-start md:items-center p-4 border rounded-lg justify-between bg-white shadow-sm hover:shadow-md transition-shadow gap-4">
+      {filteredItems.map((item, index) => (
+        <div key={item._id || index} className="flex flex-col md:flex-row items-start md:items-center p-4 border rounded-lg justify-between bg-white shadow-sm hover:shadow-md transition-shadow gap-4">
           <div className="flex items-start md:items-center gap-4 w-full">
-            <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex-shrink-0 flex items-center justify-center text-xl">
-               <FontAwesomeIcon icon={faUser} className=" text-gray-400" />
+            <div className={`w-12 h-12 rounded-full flex-shrink-0 flex items-center justify-center text-xl ${isService ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600'}`}>
+               <FontAwesomeIcon icon={isService ? faUser : faBriefcase} className={isService ? "text-gray-400" : "text-green-500"} />
             </div>
             <div className="text-left">
-              <h3 className="font-bold text-lg">{service.title}</h3>
-              {service.provider_name && (
+              <h3 className="font-bold text-lg">{item.title}</h3>
+              {(item.provider_name || item.client_name) && (
                 <p className="text-gray-500 text-sm flex items-center mb-1">
-                  {service.provider_name}
+                  {isService ? item.provider_name : `Posted by: ${item.client_name}`}
                 </p>
               )}
               
-              <p className="text-gray-600 text-sm">{service.category || "Service"}</p>
-              <p className="text-gray-500 text-sm">{service.description}</p>
-              {service.governorate && <p className="text-gray-400 text-xs mt-1">{service.governorate}</p>}
+              <p className="text-gray-600 text-sm">{item.category || (isService ? "Service" : "General")}</p>
+              <p className="text-gray-500 text-sm">{item.description}</p>
+              {item.governorate && <p className="text-gray-400 text-xs mt-1">{item.governorate}</p>}
             </div>
           </div>
           <div className="text-left md:text-right w-full md:w-auto mt-2 md:mt-0">
-            {service.price && <p className="font-bold text-lg mb-1">${service.price}</p>}
-            {service.distance && <p className="text-xs text-gray-500 mb-2">{service.distance.toFixed(1)} km</p>}
-            <button 
-              className="w-full md:w-auto px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-              onClick={() => handleBookNow(service)}
+            {item.rate && <p className="font-bold text-lg mb-1"><FontAwesomeIcon icon={faStar} className="text-yellow-400 mr-1 inline-block" />{item.rate}</p>}
+            <button
+              className={`w-full md:w-auto px-4 py-2 rounded-md transition-colors ${isService ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-green-600 text-white hover:bg-green-700'}`}
+              onClick={() => handleAction(item)}
             >
-              Book Now
+              {isService ? 'Book Now' : 'Apply Now'}
             </button>
           </div>
         </div>

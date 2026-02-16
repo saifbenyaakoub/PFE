@@ -18,7 +18,7 @@ export default function ClientHome() {
         <div className="mt-6 flex gap-3">
           <Button
             className="w-auto"
-            onClick={() => alert("Next: Create Job Request page")}
+            onClick={() => nav("/create-task")}
           >
             Create request
           </Button>

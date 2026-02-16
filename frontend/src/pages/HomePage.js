@@ -99,7 +99,7 @@ const slideImages = [
 
 
     <section className="why-section">
-      <h2>Why Choose TaskConnect?</h2>
+      <h2>Why Choose FixHub ?</h2>
       <p className="subtitle">
         The best platform for service connections
       </p>
