@@ -38,7 +38,10 @@ export default function SignIn() {
 
       <form className="mt-6 space-y-4" onSubmit={onSubmit}>
         <div>
+          <div className="flex items-center gap-1">
           <Label htmlFor="email">Email</Label>
+          <span className="text-red-500 font-bold">*</span>
+          </div>
           <Input
             id="email"
             type="email"
@@ -50,7 +53,10 @@ export default function SignIn() {
         </div>
 
         <div>
+          <div className="flex items-center gap-1">
           <Label htmlFor="password">Password</Label>
+          <span className="text-red-500 font-bold">*</span>
+          </div>
           <div className="relative">
             <Input
               id="password"

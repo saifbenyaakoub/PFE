@@ -56,7 +56,7 @@ function RoleCardUser({ selected, title, desc, onClick }) {
       type="button"
       onClick={onClick}
       className={[
-        "w-full rounded-2xl border p-4 text-left transition",
+        "w-full rounded-xl border p-4 text-left transition",
         selected ? "border-zinc-900 ring-2 ring-zinc-900/10" : "border-zinc-200 hover:bg-zinc-50",
       ].join(" ")}
     >
@@ -85,7 +85,7 @@ function RoleCardUser({ selected, title, desc, onClick }) {
       type="button"
       onClick={onClick}
       className={[
-        "w-full rounded-2xl border p-4 text-left transition",
+        "w-full rounded-xl border p-4 text-left transition",
         selected ? "border-zinc-900 ring-2 ring-zinc-900/10" : "border-zinc-200 hover:bg-zinc-50",
       ].join(" ")}
     >

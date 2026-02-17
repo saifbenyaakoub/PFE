@@ -2,7 +2,7 @@ import React from "react";
 
 export function Card({ children }) {
   return (
-    <div className="rounded-3xl border bg-white p-6 shadow-sm">{children}</div>
+    <div className="rounded-xl border bg-white p-6 shadow-sm">{children}</div>
   );
 }
 
@@ -19,7 +19,7 @@ export function Input(props) {
     <input
       {...props}
       className={[
-        "mt-2 w-full rounded-xl border bg-white px-4 py-3 text-sm outline-none",
+        "mt-2 w-full rounded-lg border bg-white px-4 py-3 text-sm outline-none",
         "border-zinc-200 focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/10",
         props.className || "",
       ].join(" ")}
@@ -29,7 +29,7 @@ export function Input(props) {
 
 export function Button({ children, loading, variant = "primary", ...props }) {
   const base =
-    "w-full rounded-xl px-4 py-3 text-sm font-medium transition active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed";
+    "w-full rounded-lg px-4 py-3 text-sm font-medium transition active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed";
   const styles =
     variant === "ghost"
       ? "border border-zinc-200 bg-white hover:bg-zinc-50"
@@ -47,7 +47,7 @@ export function Hint({ children }) {
 
 export function ErrorText({ children }) {
   if (!children) return null;
-  return <div className="mt-2 text-xs text-red-600">{children}</div>;
+  return <div className="mt-1 text-sm text-red-500">{children}</div>;
 }
 
 export function Divider({ label }) {

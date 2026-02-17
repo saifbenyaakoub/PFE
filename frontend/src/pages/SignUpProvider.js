@@ -3,35 +3,132 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button, Card, ErrorText, Hint, Input, Label } from "../components/ui";
 import { signUpProvider } from "../lib/authApi";
 import { saveSession } from "../lib/session";
-import { Eye, EyeOff } from "lucide-react";
+import MultiSelect from "./MultiSelect";
+import StrengthPassword from "./PassWord";
+import Select from "react-select";
 
-const CATEGORIES = ["Plumbing", "Cleaning", "Electrician", "Carpentry", "Moving", "Painting"];
+const TUNISIAN_GOVERNORATES = [
+  "Tunis", "Ariana", "Ben Arous", "Manouba", "Nabeul", "Zaghouan",
+  "Bizerte", "Béja", "Jendouba", "Kef", "Siliana", "Sousse",
+  "Monastir", "Mahdia", "Sfax", "Kairouan", "Kasserine", "Sidi Bouzid",
+  "Gabès", "Médenine", "Tataouine", "Gafsa", "Tozeur", "Kébili",
+];
 
 export default function SignUpProvider() {
   const navigate = useNavigate();
-  const [name, setName] = useState("");
-  const [city, setCity] = useState("");
-  const [category, setCategory] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [show, setShow] = useState(false);
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    city: "",
+    password: "",
+    category: [],
+  });
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [errors, setErrors] = useState({});
+  const [apiError, setApiError] = useState("");
+
+  const validateField = (field, value) => {
+    let message = "";
+    const trimmedValue = typeof value === "string" ? value.trim() : value;
+
+    switch (field) {
+      case "name":
+        if (!trimmedValue) {
+          message = "Full name is required.";
+        } else if (trimmedValue.length < 3) {
+          message = "Full name must be at least 3 characters.";
+        } else if (!/^[a-zA-Z\s'-]+$/.test(trimmedValue)) {
+          message = "Full name contains invalid characters.";
+        }
+        break;
+
+      case "email":
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!trimmedValue) {
+          message = "Email is required.";
+        } else if (!emailRegex.test(trimmedValue)) {
+          message = "Please enter a valid email address.";
+        }
+        break;
+
+      case "city":
+        if (!trimmedValue) {
+          message = "City is required.";
+        } else if (trimmedValue.length < 2) {
+          message = "City name is too short.";
+        }
+        break;
+
+      case "password":
+        if (!value) {
+          message = "Password is required.";
+        } else if (value.length < 8) {
+          message = "Password must be at least 8 characters.";
+        } else if (!/[A-Z]/.test(value)) {
+          message = "Password must include at least one uppercase letter.";
+        } else if (!/[a-z]/.test(value)) {
+          message = "Password must include at least one lowercase letter.";
+        } else if (!/[0-9]/.test(value)) {
+          message = "Password must include at least one number.";
+        } else if (!/[!@#$%^&*(),.?":{}|<>]/.test(value)) {
+          message = "Password must include at least one special character.";
+        }
+        break;
+
+      case "category":
+        if (!value || value.length === 0) {
+          message = "Please select at least one category.";
+        }
+        break;
+
+      default:
+        break;
+    }
+    return message;
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+    Object.keys(formData).forEach((field) => {
+      const message = validateField(field, formData[field]);
+      if (message) newErrors[field] = message;
+    });
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleChange = (field, value) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    if (errors[field]) {
+      setErrors((prev) => ({ ...prev, [field]: "" }));
+    }
+  };
+
+  const handleBlur = (field) => {
+    const message = validateField(field, formData[field]);
+    setErrors((prev) => ({ ...prev, [field]: message }));
+  };
 
   async function onSubmit(e) {
     e.preventDefault();
-    setError("");
+
+    if (!validateForm()) return;
+
+    setApiError("");
     setLoading(true);
+
     try {
-      const session = await signUpProvider({ name, email, password, category, city });
+      const session = await signUpProvider(formData);
       saveSession(session);
       navigate("/provider", { replace: true });
+
     } catch (err) {
-      setError(err?.message || "Something went wrong.");
+      setApiError(err?.message || "Something went wrong.");
     } finally {
       setLoading(false);
     }
   }
+
 
   return (
     <Card>
@@ -46,65 +143,121 @@ export default function SignUpProvider() {
 
       <form className="mt-6 space-y-4" onSubmit={onSubmit}>
         <div>
-          <Label htmlFor="name">Full name</Label>
-          <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required />
+          <div className="flex items-center gap-1">
+            <Label htmlFor="name">Full name</Label>
+            <span className="text-red-500 font-bold">*</span>
+          </div>
+          <Input
+            id="name"
+            value={formData.name}
+            onChange={(e) => handleChange("name", e.target.value)}
+            onBlur={() => handleBlur("name")}
+            className={errors.name ? "border-red-500" : ""}
+          />
+
+          {errors.name && (
+            <p className="text-sm text-red-500 mt-1">{errors.name}</p>
+          )}
+
         </div>
 
         <div>
-          <Label htmlFor="email">Email</Label>
-          <Input id="email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          <div className="flex items-center gap-1">
+            <Label htmlFor="email">Email</Label>
+            <span className="text-red-500 font-bold">*</span>
+          </div>
+          <Input
+            id="email"
+            type="email"
+            placeholder="you@example.com"
+            value={formData.email}
+            onChange={(e) => handleChange("email", e.target.value)}
+            onBlur={() => handleBlur("email")}
+            className={errors.email ? "border-red-500" : ""}
+          />
+
+          {errors.email && (
+            <p className="text-sm text-red-500 mt-1">{errors.email}</p>
+          )}
+
         </div>
 
         <div>
-          <Label htmlFor="category">Service category</Label>
-          <select
-            id="category"
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            className="mt-2 w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm outline-none focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/10"
+          <MultiSelect
+            label="Service category"
             required
-          >
-            <option value="" disabled>
-              Choose a category
-            </option>
-            {CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
+            options={["Plumbing", "Cleaning", "Electrician", "Carpentry", "Moving", "Painting"]}
+            selectedValues={formData.category}
+            onChange={(values) => handleChange("category", values)}
+            onBlur={() => handleBlur("category")}
+          />
+          
+          {errors.category && (
+            <p className="text-sm text-red-500 mt-1">{errors.category}</p>
+          )}
           <Hint>You can add more categories later in onboarding.</Hint>
         </div>
 
         <div>
-          <Label htmlFor="city">City / Service area</Label>
-          <Input id="city" value={city} onChange={(e) => setCity(e.target.value)} required />
-        </div>
-
-        <div>
-          <Label htmlFor="password">Password</Label>
-          <div className="relative">
-            <Input
-              id="password"
-              type={show ? "text" : "password"}
-              placeholder="Create a password (min 6 characters)"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="pr-12"
-            />
-            <button
-              type="button"
-              onClick={() => setShow((s) => !s)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-zinc-600 hover:text-zinc-900"
-            >
-              {show ? <Eye/> : <EyeOff/>}
-            </button>
+          <div className="flex items-center gap-1">
+            <Label htmlFor="city">City</Label>
+            <span className="text-red-500 font-bold">*</span>
           </div>
+
+          <Select
+            inputId="city"
+            options={TUNISIAN_GOVERNORATES.map((gov) => ({
+              value: gov,
+              label: gov,
+            }))}
+            value={
+              formData.city
+                ? { value: formData.city, label: formData.city }
+                : null
+            }
+            onChange={(selected) => {
+              handleChange("city", selected ? selected.value : "");
+            }}
+            onBlur={() => handleBlur("city")}
+            placeholder="Select a governorate"
+            className="mt-2"
+            classNames={{
+              control: ({ isFocused }) =>
+                `rounded-lg border bg-white px-2 py-1 shadow-sm transition-all ${isFocused
+                    ? "border-black ring-2 ring-black/20"
+                    : "border-gray-300"
+                }`,
+              menu: () =>
+                "mt-2 rounded-lg border border-gray-200 shadow-lg",
+              option: ({ isFocused, isSelected }) =>
+                `px-4 py-2 cursor-pointer ${isSelected
+                  ? "bg-black text-white"
+                  : isFocused
+                    ? "bg-gray-100"
+                    : "bg-white"
+                }`,
+              placeholder: () => "text-gray-400",
+              singleValue: () => "text-gray-800",
+            }}
+          />
+
+          {errors.city && (
+            <p className="mt-1 text-sm text-red-500">{errors.city}</p>
+          )}
+
+          <Hint>This helps us match nearby providers.</Hint>
         </div>
+        <StrengthPassword
+          password={formData.password}
+          setPassword={(value) => handleChange("password", value)}
+          error={errors.password}
+          onBlur={() => handleBlur("password")}
+        />
 
-        <ErrorText>{error}</ErrorText>
-
+        {apiError && <ErrorText>{apiError}</ErrorText>}
+        {errors.password && (
+          <p className="text-sm text-red-500 mt-1">{errors.password}</p>
+        )}
         <Button loading={loading} disabled={loading}>
           Create account
         </Button>
