@@ -10,6 +10,7 @@ import ClientHome from "./pages/ClientHome";
 import ProviderDashboard from "./pages/ProviderDashboard";
 import HomePage from "./pages/HomePage";
 import ServicesPage from "./pages/ServicesPage";
+import TasksPage from "./pages/TasksPage";
 
 export default function App() {
   return (
@@ -17,6 +18,7 @@ export default function App() {
       <Route element={<MainLayout />}>
         <Route path="/" element={<HomePage />} />
         <Route path="/services" element={<ServicesPage />} />
+        <Route path="/tasks" element={<TasksPage />} />
         <Route path="/client" element={<ClientHome />} />
         <Route path="/provider" element={<ProviderDashboard />} />
       </Route>

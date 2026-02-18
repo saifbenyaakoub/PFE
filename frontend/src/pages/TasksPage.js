@@ -3,12 +3,13 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faHammer, faWrench, faRuler, faPaintBrush, faFaucet, faSprayCan, faTaxi ,faCar,
-  faBroom,faLeaf,faBox,faUtensils,faGear, faUser, faStar,
+  faBroom,faLeaf,faBox,faUtensils,faGear, faStar, faBriefcase,
 } from '@fortawesome/free-solid-svg-icons';
 import { getSession } from "../lib/session";
 import "./services.css"
 import ServicesFilter from "./ServicesFilter";
-function ServicesPage() {
+
+function TasksPage() {
   const [items, setItems] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
@@ -48,7 +49,7 @@ function ServicesPage() {
   ];
 
   useEffect(() => {
-    const endpoint = "http://localhost:5000/services";
+    const endpoint = "http://localhost:5000/tasks";
     fetch(endpoint)
       .then(res => res.json())
       .then(data => setItems(data))
@@ -58,9 +59,8 @@ function ServicesPage() {
   const handleAction = (item) => {
     const session = getSession();
     if (session) {
-      alert(`Initiating booking for: ${item.title}`);
+      alert(`Initiating application for: ${item.title}`);
     } else {
-      // User is not signed in, redirect to sign-in page.
       navigate('/sign-in');
     }
   };
@@ -91,73 +91,70 @@ function ServicesPage() {
           );
         })}
         <div className="banner-content">
-          <h1>Browse Services</h1>
-          <p className="subtitle">Find the best professionals for your needs</p>
+          <h1>Browse Tasks</h1>
+          <p className="subtitle">Find jobs that match your skills</p>
         </div>
       </div>
 
       <input
         type="text"
-        placeholder="Search by service title..."
+        placeholder="Search by task title..."
         className="search-input"
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
       />
 
         <div className="flex flex-col md:flex-row min-h-screen gap-6">
-  {/* Sidebar */}
-  <ServicesFilter
-    selectedCategory={selectedCategory}
-    setSelectedCategory={setSelectedCategory}
-    categories={uniqueCategories}
-    selectedCity={selectedCity}
-    setSelectedCity={setSelectedCity}
-    cities={tunisianCities}
-  />
+          <ServicesFilter
+            selectedCategory={selectedCategory}
+            setSelectedCategory={setSelectedCategory}
+            categories={uniqueCategories}
+            selectedCity={selectedCity}
+            setSelectedCity={setSelectedCity}
+            cities={tunisianCities}
+          />
 
-  {/* Main content */}
-  <main className="w-full md:w-3/4 p-2 md:p-6">
-    <h1 className="text-2xl font-bold mb-4 text-left">{filteredItems.length} Services Available</h1>
+          <main className="w-full md:w-3/4 p-2 md:p-6">
+            <h1 className="text-2xl font-bold mb-4 text-left">{filteredItems.length} Tasks Available</h1>
 
-    {/* Cards */}
-    <div className="space-y-4">
-      {filteredItems.map((item, index) => (
-        <div key={item._id || index} className="flex flex-col md:flex-row items-start md:items-center p-4 border rounded-lg justify-between bg-white shadow-sm hover:shadow-md transition-shadow gap-4">
-          <div className="flex items-start md:items-center gap-4 w-full">
-            <div className="w-12 h-12 rounded-full flex-shrink-0 flex items-center justify-center text-xl bg-blue-100 text-blue-600">
-               <FontAwesomeIcon icon={faUser} className="text-gray-400" />
+            <div className="space-y-4">
+              {filteredItems.map((item, index) => (
+                <div key={item._id || index} className="flex flex-col md:flex-row items-start md:items-center p-4 border rounded-lg justify-between bg-white shadow-sm hover:shadow-md transition-shadow gap-4">
+                  <div className="flex items-start md:items-center gap-4 w-full">
+                    <div className="w-12 h-12 rounded-full flex-shrink-0 flex items-center justify-center text-xl bg-green-100 text-green-600">
+                       <FontAwesomeIcon icon={faBriefcase} className="text-green-500" />
+                    </div>
+                    <div className="text-left">
+                      <h3 className="font-bold text-lg">{item.title}</h3>
+                      {item.client_name && (
+                        <p className="text-gray-500 text-sm flex items-center mb-1">
+                          {`Posted by: ${item.client_name}`}
+                        </p>
+                      )}
+                      
+                      <p className="text-gray-600 text-sm">{item.category || "General"}</p>
+                      <p className="text-gray-500 text-sm">{item.description}</p>
+                      {item.governorate && <p className="text-gray-400 text-xs mt-1">{item.governorate}</p>}
+                    </div>
+                  </div>
+                  <div className="text-left md:text-right w-full md:w-auto mt-2 md:mt-0">
+                    {item.rate && <p className="font-bold text-lg mb-1"><FontAwesomeIcon icon={faStar} className="text-yellow-400 mr-1 inline-block" />{item.rate}</p>}
+                    <button
+                      className="w-full md:w-auto px-4 py-2 rounded-md transition-colors bg-green-600 text-white hover:bg-green-700"
+                      onClick={() => handleAction(item)}
+                    >
+                      Apply Now
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
-            <div className="text-left">
-              <h3 className="font-bold text-lg">{item.title}</h3>
-              {item.provider_name && (
-                <p className="text-gray-500 text-sm flex items-center mb-1">
-                  {item.provider_name}
-                </p>
-              )}
-              
-              <p className="text-gray-600 text-sm">{item.category || "Service"}</p>
-              <p className="text-gray-500 text-sm">{item.description}</p>
-              {item.governorate && <p className="text-gray-400 text-xs mt-1">{item.governorate}</p>}
-            </div>
-          </div>
-          <div className="text-left md:text-right w-full md:w-auto mt-2 md:mt-0">
-            {item.rate && <p className="font-bold text-lg mb-1"><FontAwesomeIcon icon={faStar} className="text-yellow-400 mr-1 inline-block" />{item.rate}</p>}
-            <button
-              className="w-full md:w-auto px-4 py-2 rounded-md transition-colors bg-blue-600 text-white hover:bg-blue-700"
-              onClick={() => handleAction(item)}
-            >
-              Book Now
-            </button>
-          </div>
+          </main>
         </div>
-      ))}
-    </div>
-  </main>
-</div>
 
     </section>
     </div>
   );
 }
 
-export default ServicesPage;
+export default TasksPage;
