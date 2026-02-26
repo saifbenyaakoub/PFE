@@ -23,7 +23,6 @@ export default function SignUpClient() {
   });
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
-  const [apiError, setApiError] = useState("");
 
 
   const validateField = (field, value) => {
@@ -92,7 +91,6 @@ export default function SignUpClient() {
 
   async function onSubmit(e) {
     e.preventDefault();
-    setApiError("");
 
     if (!validateForm()) return;
 
@@ -103,7 +101,7 @@ export default function SignUpClient() {
       saveSession(session);
       navigate("/client", { replace: true });
     } catch (err) {
-      setApiError(err?.message || "Something went wrong.");
+      // apiClient handles toast.error automatically.
     } finally {
       setLoading(false);
     }
@@ -181,8 +179,8 @@ export default function SignUpClient() {
             classNames={{
               control: ({ isFocused }) =>
                 `rounded-lg border bg-white px-2 py-1 shadow-sm transition-all ${isFocused
-                    ? "border-black ring-2 ring-black/20"
-                    : "border-gray-300"
+                  ? "border-black ring-2 ring-black/20"
+                  : "border-gray-300"
                 }`,
               menu: () =>
                 "mt-2 rounded-lg border border-gray-200 shadow-lg",
@@ -213,7 +211,6 @@ export default function SignUpClient() {
         />
 
 
-        {apiError && <ErrorText>{apiError}</ErrorText>}
         {errors.password && (
           <p className="text-sm text-red-500 mt-1">{errors.password}</p>
         )}

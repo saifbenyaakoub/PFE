@@ -25,7 +25,6 @@ export default function SignUpProvider() {
   });
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
-  const [apiError, setApiError] = useState("");
 
   const validateField = (field, value) => {
     let message = "";
@@ -114,16 +113,16 @@ export default function SignUpProvider() {
 
     if (!validateForm()) return;
 
-    setApiError("");
     setLoading(true);
 
     try {
-      const session = await signUpProvider(formData);
+      const payload = { ...formData, serviceCategory: formData.category.join(", ") };
+      const session = await signUpProvider(payload);
       saveSession(session);
       navigate("/provider", { replace: true });
 
     } catch (err) {
-      setApiError(err?.message || "Something went wrong.");
+      // apiClient handles toast.error automatically.
     } finally {
       setLoading(false);
     }
@@ -191,7 +190,7 @@ export default function SignUpProvider() {
             onChange={(values) => handleChange("category", values)}
             onBlur={() => handleBlur("category")}
           />
-          
+
           {errors.category && (
             <p className="text-sm text-red-500 mt-1">{errors.category}</p>
           )}
@@ -224,8 +223,8 @@ export default function SignUpProvider() {
             classNames={{
               control: ({ isFocused }) =>
                 `rounded-lg border bg-white px-2 py-1 shadow-sm transition-all ${isFocused
-                    ? "border-black ring-2 ring-black/20"
-                    : "border-gray-300"
+                  ? "border-black ring-2 ring-black/20"
+                  : "border-gray-300"
                 }`,
               menu: () =>
                 "mt-2 rounded-lg border border-gray-200 shadow-lg",
@@ -254,7 +253,6 @@ export default function SignUpProvider() {
           onBlur={() => handleBlur("password")}
         />
 
-        {apiError && <ErrorText>{apiError}</ErrorText>}
         {errors.password && (
           <p className="text-sm text-red-500 mt-1">{errors.password}</p>
         )}

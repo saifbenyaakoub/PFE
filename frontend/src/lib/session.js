@@ -1,14 +1,24 @@
-const KEY = "tm_session";
-
 export function saveSession(session) {
-  localStorage.setItem(KEY, JSON.stringify(session));
+  if (session && session.token) {
+    localStorage.setItem("token", session.token);
+  }
+  if (session && session.user) {
+    localStorage.setItem("user", JSON.stringify(session.user));
+  }
 }
 
 export function getSession() {
-  const raw = localStorage.getItem(KEY);
-  return raw ? JSON.parse(raw) : null;
+  const token = localStorage.getItem("token");
+  const userString = localStorage.getItem("user");
+  const user = userString ? JSON.parse(userString) : null;
+
+  if (token && user) {
+    return { token, user };
+  }
+  return null;
 }
 
 export function clearSession() {
-  localStorage.removeItem(KEY);
+  localStorage.removeItem("token");
+  localStorage.removeItem("user");
 }
