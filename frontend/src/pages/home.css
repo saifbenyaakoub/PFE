@@ -100,11 +100,37 @@
 .category-card:hover {
   transform: translateY(-5px);
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+  background-color: #f8f9fa;
 }
 
 .icon {
   font-size: 35px;
   margin-bottom: 15px;
+  transition: color 0.3s ease;
+}
+
+
+.category-card h3 {
+  font-size: 1.1rem;
+  margin-bottom: 10px;
+  transition: color 0.3s ease;
+}
+
+.category-card .description {
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: #666;
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: all 0.3s ease-in-out;
+  margin-top: 0;
+}
+
+.category-card:hover .description {
+  opacity: 1;
+  max-height: 100px; /* Adjust based on your content */
+  margin-top: 15px;
 }
 
 /* CTA */

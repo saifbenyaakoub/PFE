@@ -8,12 +8,12 @@ function HomePage() {
 
   const navigate = useNavigate();
   const categories = [
-  { name: "Cleaning", icon: <FaBroom style={{ color: "saddlebrown" }} /> },
-  { name: "Handyman", icon: <FaWrench style={{ color: "slategray" }} /> },
-  { name: "Cooking", icon: <FaUtensils style={{ color: "gray" }} /> },
-  { name: "Gardening", icon: <FaLeaf style={{ color: "green" }}/> },
-  { name: "Moving", icon: <FaBox style={{ color: "peru" }} /> },
-    { name: "Other", icon: <FaGear style={{ color: "darkslategray" }} /> }
+  { name: "Cleaning", icon: <FaBroom style={{ color: "saddlebrown" }} />, description: "Find top-rated cleaning professionals for your home or office." },
+  { name: "Handyman", icon: <FaWrench style={{ color: "slategray" }} />, description: "Get help with repairs, installations, and other odd jobs." },
+  { name: "Cooking", icon: <FaUtensils style={{ color: "gray" }} />, description: "Hire personal chefs for meal prep or special occasions." },
+  { name: "Gardening", icon: <FaLeaf style={{ color: "green" }}/>, description: "Book gardeners for lawn care, planting, and maintenance." },
+  { name: "Moving", icon: <FaBox style={{ color: "peru" }} />, description: "Find reliable movers to help with your relocation." },
+  { name: "Other", icon: <FaGear style={{ color: "darkslategray" }} />, description: "Explore a variety of other professional services." }
 ];
 
 const features = [
@@ -90,7 +90,8 @@ const slideImages = [
         {categories.map((cat, index) => (
           <div key={index} className="category-card">
             <div className="icon">{cat.icon}</div>
-            <p>{cat.name}</p>
+            <h3>{cat.name}</h3>
+            <p className="description">{cat.description}</p>
           </div>
         ))}
       </div>
@@ -118,7 +119,7 @@ const slideImages = [
     <section className="cta-section">
       <h2>Ready to Get Started?</h2>
       <p>
-        Join thousands of satisfied customers and providers on TaskConnect today.
+        Join thousands of satisfied customers and providers on FixHub today.
       </p>
 
       <button className="cta-button" onClick={() => navigate('/services')}>

@@ -12,9 +12,10 @@ const MainLayout = () => {
       <main className="main-content">
         <div key={location.pathname} className="page-fade-in">
           <Outlet />
+           <Footer />
         </div>
       </main>
-      <Footer />
+     
     </div>
   );
 };
