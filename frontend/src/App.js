@@ -13,20 +13,22 @@ import HomePage from "./pages/HomePage";
 import ServicesPage from "./pages/ServicesPage";
 import TasksPage from "./pages/TasksPage";
 import ProfilePage from "./pages/ProfilePage";
+import BookingService from "./pages/bookingService";
 
 export default function App() {
   return (
     <>
-      <Toaster position="top-right" />
-      <Routes>
-        <Route element={<MainLayout />}>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/services" element={<ServicesPage />} />
-          <Route path="/tasks" element={<TasksPage />} />
-          <Route path="/client" element={<ClientHome />} />
-          <Route path="/provider" element={<ProviderDashboard />} />
+    <Toaster position="top-right" />
+    <Routes>
+      <Route element={<MainLayout />}>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/services" element={<ServicesPage />} />
+        <Route path="/tasks" element={<TasksPage />} />
+        <Route path="/client" element={<ClientHome />} />
+        <Route path="/provider" element={<ProviderDashboard />} />
           <Route path="/profile" element={<ProfilePage />} />
-        </Route>
+        <Route path="/bookingService/:serviceId" element={<BookingService />} />
+      </Route>
 
         <Route element={<AuthLayout />}>
           <Route path="/get-started" element={<ChooseRole />} />

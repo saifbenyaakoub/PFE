@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Button, Card, Divider, ErrorText, Input, Label } from "../components/ui";
+import { Button, Card, Divider, Input, Label } from "../components/ui";
 import { signIn } from "../lib/authApi";
 import { saveSession } from "../lib/session";
 import { Eye, EyeOff } from "lucide-react";

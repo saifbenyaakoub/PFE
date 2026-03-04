@@ -48,23 +48,11 @@ function TasksPage() {
     "Sfax", "Gafsa", "Tozeur", "Kebili", "Gabès", "Medenine", "Tataouine"
   ];
 
-  useEffect(() => {
+   useEffect(() => {
     const endpoint = "http://localhost:5000/tasks";
     fetch(endpoint)
-      .then(res => {
-        if (!res.ok) {
-          throw new Error(`HTTP error! status: ${res.status}`);
-        }
-        return res.text();
-      })
-      .then(text => {
-        try {
-          const data = JSON.parse(text);
-          setItems(data);
-        } catch (err) {
-          console.error("Failed to parse JSON:", err);
-        }
-      })
+      .then(res => res.json())
+      .then(data => setItems(data))
       .catch(err => console.error(err));
   }, []);
 

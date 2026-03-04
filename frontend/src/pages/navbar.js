@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink, Link } from "react-router-dom";
-import { FaHome, FaUser, FaBriefcase, FaBars, FaTimes, FaTasks } from "react-icons/fa";
+import { FaHome, FaUser, FaBriefcase, FaBars, FaTimes, FaTasks, FaCalendarCheck } from "react-icons/fa";
 import { FaScrewdriverWrench } from "react-icons/fa6";
 import "./navbar.css";
 function Navbar  () {

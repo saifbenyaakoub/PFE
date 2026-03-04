@@ -50,27 +50,19 @@ function ServicesPage() {
   useEffect(() => {
     const endpoint = "http://localhost:5000/services";
     fetch(endpoint)
-      .then(res => {
-        if (!res.ok) {
-          throw new Error(`HTTP error! status: ${res.status}`);
-        }
-        return res.text();
-      })
-      .then(text => {
-        try {
-          const data = JSON.parse(text);
-          setItems(data);
-        } catch (err) {
-          console.error("Failed to parse JSON:", err);
-        }
-      })
+      .then(res => res.json())
+      .then(data => {console.log(data) ; setItems(data)})
       .catch(err => console.error(err));
   }, []);
 
   const handleAction = (item) => {
     const session = getSession();
     if (session) {
-      alert(`Initiating booking for: ${item.title}`);
+      if (item && item.id) {
+        navigate(`/bookingService/${item.id}`);
+      } else {
+        console.error("Service ID is missing", item);
+      }
     } else {
       // User is not signed in, redirect to sign-in page.
       navigate('/sign-in');
@@ -134,7 +126,7 @@ function ServicesPage() {
     {/* Cards */}
     <div className="space-y-4">
       {filteredItems.map((item, index) => (
-        <div key={item._id || index} className="flex flex-col md:flex-row items-start md:items-center p-4 border rounded-lg justify-between bg-white shadow-sm hover:shadow-md transition-shadow gap-4">
+        <div key={item.id || index} className="flex flex-col md:flex-row items-start md:items-center p-4 border rounded-lg justify-between bg-white shadow-sm hover:shadow-md transition-shadow gap-4">
           <div className="flex items-start md:items-center gap-4 w-full">
             <div className="w-12 h-12 rounded-full flex-shrink-0 flex items-center justify-center text-xl bg-blue-100 text-blue-600">
                <FontAwesomeIcon icon={faUser} className="text-gray-400" />
@@ -143,7 +135,7 @@ function ServicesPage() {
               <h3 className="font-bold text-lg">{item.title}</h3>
               {item.provider_name && (
                 <p className="text-gray-500 text-sm flex items-center mb-1">
-                  {item.provider_name}
+                  {item.provider_name} {/* Replace with provider name if available */}
                 </p>
               )}
               
