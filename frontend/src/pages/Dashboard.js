@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import "./providerDashboard.css";
+import "./Dashboard.css";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faDollarSign,

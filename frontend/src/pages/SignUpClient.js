@@ -99,7 +99,7 @@ export default function SignUpClient() {
     try {
       const session = await signUpClient(formData);
       saveSession(session);
-      navigate("/client", { replace: true });
+      navigate("/profile", { replace: true });
     } catch (err) {
       // apiClient handles toast.error automatically.
     } finally {

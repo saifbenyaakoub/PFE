@@ -63,7 +63,7 @@ export default function MultiSelect({ label, options, selectedValues, onChange, 
                 key={opt}
                 onClick={() => toggleOption(opt)}
                 className={`px-4 py-3 text-[14px] cursor-pointer transition-colors
-                  ${selectedValues.includes(opt) ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-700 hover:bg-gray-50'}`}
+                  ${selectedValues.includes(opt) ? 'bg-blue-50 text-gray-600 font-medium' : 'text-gray-700 hover:bg-gray-50'}`}
               >
                 {opt}
               </div>

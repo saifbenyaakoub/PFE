@@ -119,7 +119,7 @@ export default function SignUpProvider() {
       const payload = { ...formData, serviceCategory: formData.category.join(", ") };
       const session = await signUpProvider(payload);
       saveSession(session);
-      navigate("/provider", { replace: true });
+      navigate("/profile", { replace: true });
 
     } catch (err) {
       // apiClient handles toast.error automatically.
