@@ -88,7 +88,12 @@ const slideImages = [
 
       <div className="categories-grid">
         {categories.map((cat, index) => (
-          <div key={index} className="category-card">
+          <div
+            key={index}
+            className="category-card"
+            onClick={() => navigate(`/services?category=${cat.name}`)}
+            style={{ cursor: "pointer" }}
+          >
             <div className="icon">{cat.icon}</div>
             <h3>{cat.name}</h3>
             <p className="description">{cat.description}</p>

@@ -59,7 +59,11 @@ function TasksPage() {
   const handleAction = (item) => {
     const session = getSession();
     if (session) {
-      alert(`Initiating application for: ${item.title}`);
+      if (item && item.id) {
+        navigate(`/bookingTask/${item.id}`);
+      } else {
+        console.error("Task ID is missing", item);
+      }
     } else {
       navigate('/sign-in');
     }
@@ -119,7 +123,7 @@ function TasksPage() {
 
             <div className="space-y-4">
               {filteredItems.map((item, index) => (
-                <div key={item._id || index} className="flex flex-col md:flex-row items-start md:items-center p-4 border rounded-lg justify-between bg-white shadow-sm hover:shadow-md transition-shadow gap-4">
+                <div key={item.id || index} className="flex flex-col md:flex-row items-start md:items-center p-4 border rounded-lg justify-between bg-white shadow-sm hover:shadow-md transition-shadow gap-4">
                   <div className="flex items-start md:items-center gap-4 w-full">
                     <div className="w-12 h-12 rounded-full flex-shrink-0 flex items-center justify-center text-xl bg-green-100 text-green-600">
                        <FontAwesomeIcon icon={faBriefcase} className="text-green-500" />

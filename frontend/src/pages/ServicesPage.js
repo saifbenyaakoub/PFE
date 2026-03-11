@@ -1,6 +1,6 @@
 import React from 'react';
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faHammer, faWrench, faRuler, faPaintBrush, faFaucet, faSprayCan, faTaxi ,faCar,
   faBroom,faLeaf,faBox,faUtensils,faGear, faUser, faStar,
@@ -11,10 +11,11 @@ import ServicesFilter from "./ServicesFilter";
 function ServicesPage() {
   const [items, setItems] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("");
-  const [selectedCity, setSelectedCity] = useState("");
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
+  const [selectedCategory, setSelectedCategory] = useState(searchParams.get('category') || "");
+  const [selectedCity, setSelectedCity] = useState(searchParams.get('city') || "");
   const iconDetails = [
     { left: '10%', size: 45, delay: '0s', duration: '20s' },
     { left: '30%', size: 70, delay: '-2s', duration: '25s' },
@@ -51,9 +52,20 @@ function ServicesPage() {
     const endpoint = "http://localhost:5000/services";
     fetch(endpoint)
       .then(res => res.json())
-      .then(data => {console.log(data) ; setItems(data)})
+      .then(data =>  setItems(data))
       .catch(err => console.error(err));
   }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (selectedCategory) {
+      params.set('category', selectedCategory);
+    }
+    if (selectedCity) {
+      params.set('city', selectedCity);
+    }
+    setSearchParams(params, { replace: true });
+  }, [selectedCategory, selectedCity, setSearchParams]);
 
   const handleAction = (item) => {
     const session = getSession();
@@ -72,7 +84,7 @@ function ServicesPage() {
   const filteredItems = items.filter(item => {
     const matchesSearch = item.title && item.title.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory ? item.category === selectedCategory : true;    
-    const matchesCity = selectedCity ? item.governorate === selectedCity : true;
+    const matchesCity = selectedCity ? item.city === selectedCity : true;
     return matchesSearch && matchesCategory && matchesCity;
   });
 
@@ -141,7 +153,7 @@ function ServicesPage() {
               
               <p className="text-gray-600 text-sm">{item.category || "Service"}</p>
               <p className="text-gray-500 text-sm">{item.description}</p>
-              {item.governorate && <p className="text-gray-400 text-xs mt-1">{item.governorate}</p>}
+              {item.city && <p className="text-gray-400 text-xs mt-1">{item.city}</p>}
             </div>
           </div>
           <div className="text-left md:text-right w-full md:w-auto mt-2 md:mt-0">

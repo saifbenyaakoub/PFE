@@ -1,8 +1,8 @@
 .footer {
-    background-color: #f8f9fa;
+    background-color: #18181b; /* zinc-900 */
     padding: 1.5rem;
     text-align: center;
-    color: #6c757d;
-    border-top: 1px solid #e7e7e7;
+    color: #a1a1aa; /* zinc-400 */
+    border-top: 1px solid #27272a; /* zinc-800 */
     flex-shrink: 0;
 }

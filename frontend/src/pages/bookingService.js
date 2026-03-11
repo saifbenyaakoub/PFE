@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import "./booking.css";
-import { FaArrowLeft, FaClock, FaMapMarkerAlt, FaCheckCircle, FaUser } from "react-icons/fa";
+import { FaArrowLeft, FaMapMarkerAlt, FaCheckCircle, FaUser } from "react-icons/fa";
 import { getSession } from "../lib/session";
 
 function BookingService() {
-  const { id } = useParams();
+  const {serviceId}= useParams();
+
   const navigate = useNavigate();
 
   const [service, setService] = useState(null);
@@ -16,11 +17,11 @@ function BookingService() {
   const [error, setError] = useState("");
   const [bookingInProgress, setBookingInProgress] = useState(false);
 
-  // ✅ Fetch service by ID
+  // Fetch service by ID
   useEffect(() => {
     const fetchService = async () => {
       try {
-        const res = await fetch(`http://localhost:5000/services/${id}`);
+        const res = await fetch(`http://localhost:5000/services/${serviceId}`);
         if (!res.ok) throw new Error("Service not found");
         const data = await res.json();
         setService(data);
@@ -30,11 +31,9 @@ function BookingService() {
         setLoading(false);
       }
     };
-
     fetchService();
-  }, [id]);
+  }, [serviceId]);
 
-  // ✅ Handle booking
   const handleBooking = async () => {
     const session = getSession();
 
@@ -63,12 +62,11 @@ function BookingService() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          service_id: service.id,          // ✅ PostgreSQL ID
+          service_id: service.id,
           client_id: session.user.id,
           date,
           time,
           details,
-          total_price: totalPrice,
         }),
       });
 
@@ -78,7 +76,6 @@ function BookingService() {
 
       alert("Booking confirmed successfully!");
       navigate("/tasks");
-
     } catch (err) {
       setError(err.message);
     } finally {
@@ -86,43 +83,25 @@ function BookingService() {
     }
   };
 
-  if (loading) {
-    return <div className="service-details-container">Loading service details...</div>;
-  }
-
-  if (error && !service) {
-    return <div className="service-details-container">Error: {error}</div>;
-  }
-
-  if (!service) {
-    return <div className="service-details-container">Service not found.</div>;
-  }
-
-
-  const totalPrice = Number(service.rate) 
+  if (loading) return <div className="service-details-container">Loading service details...</div>;
+  if (error && !service) return <div className="service-details-container">Error: {error}</div>;
+  if (!service) return <div className="service-details-container">Service not found.</div>;
 
   return (
     <div className="service-details-container">
-
       <button className="back-button" onClick={() => navigate(-1)}>
         <FaArrowLeft /> Back
       </button>
 
       <div className="content-wrapper">
-
         {/* LEFT SIDE */}
         <div className="left-section">
           <div className="image-wrapper">
             <img
-              src={
-                service.image_url ||
-                "https://images.unsplash.com/photo-1581578731548-c64695cc6952"
-              }
+              src="https://images.unsplash.com/photo-1581578731548-c64695cc6952"
               alt={service.title}
             />
-            <span className="category-badge">
-              {service.category}
-            </span>
+            <span className="category-badge">{service.category}</span>
           </div>
 
           <h1>{service.title}</h1>
@@ -133,10 +112,11 @@ function BookingService() {
             </div>
           )}
 
-
-          <div className="service-meta">
-            <span><FaMapMarkerAlt /> {service.governorate}</span>
-          </div>
+          {service.city && (
+            <div className="service-meta">
+              <FaMapMarkerAlt /> {service.city}
+            </div>
+          )}
 
           <p>{service.description}</p>
         </div>
@@ -147,18 +127,10 @@ function BookingService() {
           <p className="subtitle">Schedule your service appointment</p>
 
           <label>Preferred Date</label>
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-          />
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
 
           <label>Preferred Time</label>
-          <input
-            type="time"
-            value={time}
-            onChange={(e) => setTime(e.target.value)}
-          />
+          <input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
 
           <label>Additional Details</label>
           <textarea
@@ -167,28 +139,16 @@ function BookingService() {
             onChange={(e) => setDetails(e.target.value)}
           />
 
-
           <button
             className="confirm-btn"
             onClick={handleBooking}
             disabled={bookingInProgress}
           >
-            {bookingInProgress ? "Booking..." : (
-              <>
-                <FaCheckCircle /> Confirm Booking
-              </>
-            )}
+            {bookingInProgress ? "Booking..." : (<><FaCheckCircle /> Confirm Booking</>)}
           </button>
 
-          {error && (
-            <p className="note" style={{ color: "red" }}>
-              {error}
-            </p>
-          )}
-
-          <p className="note">
-            You'll be able to communicate with the provider after booking.
-          </p>
+          {error && <p className="note" style={{ color: "red" }}>{error}</p>}
+          <p className="note">You'll be able to communicate with the provider after booking.</p>
         </div>
       </div>
     </div>
