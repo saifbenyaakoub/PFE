@@ -2,16 +2,18 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import "./booking.css";
 import { FaArrowLeft, FaMapMarkerAlt, FaCheckCircle, FaUser } from "react-icons/fa";
+import { faLocationDot } from "@fortawesome/free-solid-svg-icons";
 import { getSession } from "../lib/session";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
-const customIcon = new L.Icon({
-  iconUrl: "https://www.svgrepo.com/show/342417/location-pin.svg",
-  iconSize: [40, 41],
-  iconAnchor: [20, 41],
-  popupAnchor: [1, -34],
+const locationIcon = L.divIcon({
+  html: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${faLocationDot.icon[0]} ${faLocationDot.icon[1]}" style="width: 40px; height: 40px; fill: #d32f2f; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3));"><path d="${faLocationDot.icon[4]}" /></svg>`,
+  className: 'custom-map-marker',
+  iconSize: [40, 40],
+  iconAnchor: [20, 40],
+  popupAnchor: [0, -40]
 });
 
 const governorateCoordinates = {
@@ -122,12 +124,12 @@ function BookingTask() {
         {/* LEFT SIDE */}
         <div className="left-section">
           <div className="image-wrapper">
-            <MapContainer center={position} zoom={13} scrollWheelZoom={false} style={{ height: '420px', width: '100%', borderRadius: '15px' }}>
+            <MapContainer center={position} zoom={13} scrollWheelZoom={true} style={{ height: '420px', width: '100%', borderRadius: '15px' }}>
               <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               />
-              <Marker position={position} icon={customIcon}>
+              <Marker position={position} icon={locationIcon}>
                 <Popup>
                   {task.title} <br /> {task.address || task.governorate}
                 </Popup>

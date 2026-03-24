@@ -1,20 +1,20 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import "./home.css";
-import { FaBroom, FaWrench, FaUtensils, FaLeaf, FaBox,FaShieldAlt, FaStar, FaCheckCircle, FaUsers, FaArrowRight} from "react-icons/fa";
+import { FaBroom, FaWrench, FaLeaf, FaBox, FaShieldAlt, FaStar, FaCheckCircle, FaUsers, FaArrowRight} from "react-icons/fa";
 import { FaGear } from 'react-icons/fa6';
 
 function HomePage() {
+  const [activeIndex, setActiveIndex] = useState(0);
 
   const navigate = useNavigate();
   const categories = [
-  { name: "Cleaning", icon: <FaBroom style={{ color: "saddlebrown" }} />, description: "Find top-rated cleaning professionals for your home or office." },
-  { name: "Handyman", icon: <FaWrench style={{ color: "slategray" }} />, description: "Get help with repairs, installations, and other odd jobs." },
-  { name: "Cooking", icon: <FaUtensils style={{ color: "gray" }} />, description: "Hire personal chefs for meal prep or special occasions." },
-  { name: "Gardening", icon: <FaLeaf style={{ color: "green" }}/>, description: "Book gardeners for lawn care, planting, and maintenance." },
-  { name: "Moving", icon: <FaBox style={{ color: "peru" }} />, description: "Find reliable movers to help with your relocation." },
-  { name: "Other", icon: <FaGear style={{ color: "darkslategray" }} />, description: "Explore a variety of other professional services." }
-];
+    { name: "Cleaning", icon: <FaBroom />, colorClass: "cleaning", description: "Find top-rated cleaning professionals for your home or office." },
+    { name: "Handyman", icon: <FaWrench />, colorClass: "handyman", description: "Get help with repairs, installations, and other odd jobs." },
+    { name: "Gardening", icon: <FaLeaf />, colorClass: "gardening", description: "Book gardeners for lawn care, planting, and maintenance." },
+    { name: "Moving", icon: <FaBox />, colorClass: "moving", description: "Find reliable movers to help with your relocation." },
+    { name: "Other", icon: <FaGear />, colorClass: "other", description: "Explore a variety of other professional services." }
+  ];
 
 const features = [
   {
@@ -44,63 +44,71 @@ const features = [
 ];
 
 const slideImages = [
-  "https://images.pexels.com/photos/4246120/pexels-photo-4246120.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
-  "https://images.pexels.com/photos/5691597/pexels-photo-5691597.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
-  "https://images.pexels.com/photos/4750274/pexels-photo-4750274.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
-  "https://images.pexels.com/photos/6195951/pexels-photo-6195951.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
-  "https://img.freepik.com/premium-photo/plumber-fixing-white-sink-pipe-with-adjustable-wrench_926199-1981248.jpg?w=2000",
+  "https://images.pexels.com/photos/4246120/pexels-photo-4246120.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1", // Cleaning
+  "https://images.pexels.com/photos/5691597/pexels-photo-5691597.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1", // Handyman
+  "https://images.pexels.com/photos/6195951/pexels-photo-6195951.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1", // Gardening
+  "https://images.pexels.com/photos/424620/pexels-photo-424620.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",   // Moving
+  "https://images.pexels.com/photos/8952545/pexels-photo-8952545.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1"    // Other
 ];
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setActiveIndex(prevIndex => (prevIndex + 1) % categories.length);
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [categories.length]);
 
   return (
 
     <div className="home-container">
-    <section className="hero">
-      <div className="hero-content">
-        <h1>Connect with Trusted Service Providers</h1>
-        <p>
-          Find reliable professionals for your daily needs.
-          From cleaning to handyman services, we've got you covered.
-        </p>
-      </div>
-      <div className="hero-slider">
-        <div className="slider-track">
+      <section className="hero">
+        <div className="hero-content">
+          <h1>Connect with Trusted Service Providers</h1>
+          <p>
+            Find reliable professionals for your daily needs. From cleaning to
+            handyman services, we've got you covered.
+          </p>
+          <button className="cta-button hero-cta" onClick={() => navigate('/services')}>
+            Explore Services <FaArrowRight />
+          </button>
+        </div>
+        <div className="hero-image-container">
           {slideImages.map((src, index) => (
-            <div className="slide" key={index}>
-              <img src={src} alt={`Service example ${index + 1}`} />
-            </div>
+            <img
+              key={src}
+              src={src}
+              alt={`${categories[index].name} service`}
+              className={`hero-image ${index === activeIndex ? 'visible' : ''}`}
+            />
           ))}
-          {/* Duplicate for seamless loop */}
-          {slideImages.map((src, index) => (
-            <div className="slide" key={`clone-${index}`}>
-              <img src={src} alt={`Service example ${index + 1}`} />
+        </div>
+      </section>
+
+      <section className="categories">
+        <h2>Popular Categories</h2>
+        <p className="subtitle">Hover to explore, click to see services</p>
+
+        <div className="categories-grid">
+          {categories.map((cat, index) => (
+            <div
+              key={index}
+              className={`category-card ${index === activeIndex ? 'active' : ''}`}
+              onClick={() => navigate(`/services?category=${cat.name}`)}
+              onMouseEnter={() => setActiveIndex(index)}
+            >
+              <div className={`icon ${cat.colorClass}`}>{cat.icon}</div>
+              <h3>{cat.name}</h3>
+              <p className="description">{cat.description}</p>
             </div>
           ))}
         </div>
-      </div>
-    </section>
+      </section>
 
 
 
 
-    <section className="categories">
-      <h2>Popular Categories</h2>
-      <p className="subtitle">Explore services by category</p>
-
-      <div className="categories-grid">
-        {categories.map((cat, index) => (
-          <div
-            key={index}
-            className="category-card"
-            onClick={() => navigate(`/services?category=${cat.name}`)}
-            style={{ cursor: "pointer" }}
-          >
-            <div className="icon">{cat.icon}</div>
-            <h3>{cat.name}</h3>
-            <p className="description">{cat.description}</p>
-          </div>
-        ))}
-      </div>
-    </section>
+    
 
 
 

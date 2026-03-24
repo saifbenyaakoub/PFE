@@ -15,6 +15,7 @@ import TasksPage from "./pages/TasksPage";
 import ProfilePage from "./pages/ProfilePage";
 import BookingService from "./pages/bookingService";
 import BookingTask from './pages/bookingTask';
+import Chat from "./pages/Chat";
 
 
 export default function App() {
@@ -32,6 +33,7 @@ export default function App() {
           <Route path="/profile" element={<ProfilePage />} />
         <Route path="/bookingService/:serviceId" element={<BookingService />} />
         <Route path="/bookingTask/:taskId" element={<BookingTask />} />
+        <Route path="/chat" element={<Chat />} />
     
       </Route>
 

@@ -1,15 +1,20 @@
-import { FaHome, FaUser, FaBriefcase, FaBars, FaTimes, FaTasks, FaCalendarCheck } from "react-icons/fa";
-import React, { useState, useEffect, useRef } from 'react';
+
+import { useState, useEffect, useRef } from 'react';
 import { NavLink, Link, useNavigate } from "react-router-dom";
-import { FaScrewdriverWrench } from "react-icons/fa6";
+import { FaHome, FaUser, FaBriefcase, FaBars, FaTimes, FaTasks, FaBroom, FaWrench, FaLeaf, FaBox, FaComments } from "react-icons/fa";
+import { FaScrewdriverWrench, FaGear } from "react-icons/fa6";
 import { getSession, clearSession } from "../lib/session";
 import "./navbar.css";
 
 function Navbar() {
   const [isMenuOpen, setIsMenuOpen]         = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isServicesOpen, setIsServicesOpen] = useState(false);
+  const [isTasksOpen, setIsTasksOpen]       = useState(false);
   const [session, setSession]               = useState(() => getSession());
   const dropdownRef                         = useRef(null);
+  const servicesTimeoutRef                  = useRef(null);
+  const tasksTimeoutRef                     = useRef(null);
   const navigate                            = useNavigate();
 
   // Reactive session — updates navbar avatar/name after profile save
@@ -49,6 +54,36 @@ function Navbar() {
   const name     = user?.name || user?.username || user?.email || '';
   const initials = name.trim().split(/\s+/).map(n => n[0]).join('').toUpperCase().slice(0, 2) || '?';
 
+  const serviceCategories = [
+    { name: "Cleaning", icon: <FaBroom /> },
+    { name: "Handyman", icon: <FaWrench /> },
+    { name: "Gardening", icon: <FaLeaf /> },
+    { name: "Moving", icon: <FaBox /> },
+    { name: "Other", icon: <FaGear /> }
+  ];
+
+  const handleServicesEnter = () => {
+    if (servicesTimeoutRef.current) clearTimeout(servicesTimeoutRef.current);
+    setIsServicesOpen(true);
+  };
+
+  const handleServicesLeave = () => {
+    servicesTimeoutRef.current = setTimeout(() => {
+      setIsServicesOpen(false);
+    }, 150);
+  };
+
+  const handleTasksEnter = () => {
+    if (tasksTimeoutRef.current) clearTimeout(tasksTimeoutRef.current);
+    setIsTasksOpen(true);
+  };
+
+  const handleTasksLeave = () => {
+    tasksTimeoutRef.current = setTimeout(() => {
+      setIsTasksOpen(false);
+    }, 150);
+  };
+
   return (
     <nav className="navbar">
       <Link to="/" className="logo" onClick={closeMenu}>
@@ -58,8 +93,61 @@ function Navbar() {
       <div className={isMenuOpen ? "nav-content open" : "nav-content"}>
         <ul className="nav-links">
           <li><NavLink to="/" end onClick={closeMenu} className={({ isActive }) => isActive ? "active" : ""}><FaHome /> <span>Home</span></NavLink></li>
-          <li><NavLink to="/services" onClick={closeMenu} className={({ isActive }) => isActive ? "active" : ""}><FaBriefcase /> <span>Services</span></NavLink></li>
-          <li><NavLink to="/tasks" onClick={closeMenu} className={({ isActive }) => isActive ? "active" : ""}><FaTasks /> <span>Tasks</span></NavLink></li>
+          <li
+            onMouseEnter={handleServicesEnter}
+            onMouseLeave={handleServicesLeave}
+          >
+            <NavLink to="/services" onClick={closeMenu} className={({ isActive }) => isActive ? "active" : ""}><FaBriefcase /> <span>Services</span></NavLink>
+            <div
+              className={`absolute top-full left-0 w-full bg-[#18181b] border-t border-[#27272a] shadow-xl z-50 flex justify-center transition-all duration-300 ease-in-out ${
+                isServicesOpen
+                  ? 'opacity-100 translate-y-0'
+                  : 'opacity-0 -translate-y-4 pointer-events-none'
+              }`}
+            >
+              <div className="flex items-center gap-8 py-5">
+                {serviceCategories.map((cat) => (
+                  <Link
+                    key={cat.name}
+                    to={`/services?category=${cat.name}`}
+                    className="flex items-center gap-2 text-sm font-medium text-gray-400 transition-colors hover:text-white"
+                    onClick={() => { setIsServicesOpen(false); closeMenu(); }}
+                  >
+                    {cat.icon}
+                    <span>{cat.name}</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </li>
+          <li
+            onMouseEnter={handleTasksEnter}
+            onMouseLeave={handleTasksLeave}
+          >
+            <NavLink to="/tasks" onClick={closeMenu} className={({ isActive }) => isActive ? "active" : ""}><FaTasks /> <span>Tasks</span></NavLink>
+            <div
+              className={`absolute top-full left-0 w-full bg-[#18181b] border-t border-[#27272a] shadow-xl z-50 flex justify-center transition-all duration-300 ease-in-out ${
+                isTasksOpen
+                  ? 'opacity-100 translate-y-0'
+                  : 'opacity-0 -translate-y-4 pointer-events-none'
+              }`}
+            >
+              <div className="flex items-center gap-8 py-5">
+                {serviceCategories.map((cat) => (
+                  <Link
+                    key={cat.name}
+                    to={`/tasks?category=${cat.name}`}
+                    className="flex items-center gap-2 text-sm font-medium text-gray-400 transition-colors hover:text-white"
+                    onClick={() => { setIsTasksOpen(false); closeMenu(); }}
+                  >
+                    {cat.icon}
+                    <span>{cat.name}</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </li>
+          <li><NavLink to="/chat" onClick={closeMenu} className={({ isActive }) => isActive ? "active" : ""}><FaComments /> <span>Messages</span></NavLink></li>
         </ul>
 
         <div className="nav-auth">

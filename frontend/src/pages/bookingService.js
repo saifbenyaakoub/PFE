@@ -1,9 +1,32 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import "./booking.css";
-import { FaArrowLeft, FaMapMarkerAlt, FaCheckCircle, FaUser } from "react-icons/fa";
+import { FaArrowLeft, FaMapMarkerAlt, FaCheckCircle, FaUser, FaCamera, FaTimes } from "react-icons/fa";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faLocationDot } from "@fortawesome/free-solid-svg-icons";
 import { getSession } from "../lib/session";
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+import L from "leaflet";
 
+const governorateCoordinates = {
+  "Tunis": [36.8065, 10.1815], "Ariana": [36.8665, 10.1647], "Ben Arous": [36.746, 10.228],
+  "Manouba": [36.808, 10.096], "Nabeul": [36.456, 10.735], "Zaghouan": [36.403, 10.144],
+  "Bizerte": [37.2744, 9.8739], "Béja": [36.7256, 9.1817], "Jendouba": [36.501, 8.780],
+  "Kef": [36.174, 8.704], "Siliana": [36.083, 9.367], "Kairouan": [35.678, 10.096],
+  "Kasserine": [35.167, 8.833], "Sidi Bouzid": [35.033, 9.500], "Sousse": [35.825, 10.641],
+  "Monastir": [35.765, 10.826], "Mahdia": [35.504, 11.062], "Sfax": [34.740, 10.760],
+  "Gafsa": [34.425, 8.784], "Tozeur": [33.919, 8.134], "Kebili": [33.705, 8.969],
+  "Gabès": [33.881, 10.098], "Medenine": [33.355, 10.505], "Tataouine": [32.930, 10.451]
+};
+
+const locationIcon = L.divIcon({
+  html: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${faLocationDot.icon[0]} ${faLocationDot.icon[1]}" style="width: 40px; height: 40px; fill: #d32f2f; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3));"><path d="${faLocationDot.icon[4]}" /></svg>`,
+  className: 'custom-map-marker',
+  iconSize: [40, 40],
+  iconAnchor: [20, 40],
+  popupAnchor: [0, -40]
+});
 function BookingService() {
   const {serviceId}= useParams();
 
@@ -16,6 +39,13 @@ function BookingService() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [bookingInProgress, setBookingInProgress] = useState(false);
+  const fileInputRef = useRef(null);
+
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+  const minDate = `${year}-${month}-${day}`;
 
   // Fetch service by ID
   useEffect(() => {
@@ -52,22 +82,30 @@ function BookingService() {
       return;
     }
 
+    if (date < minDate) {
+      alert("You cannot book a date in the past.");
+      return;
+    }
+
     setBookingInProgress(true);
     setError("");
 
     try {
-      const response = await fetch("http://localhost:5000/bookings", {
+    
+      const bookingData = {
+        service_id: service.id,
+        client_id: session.user.id,
+        date,
+        time,
+        details,
+      };
+
+      const response = await fetch("http://localhost:5000/bookings", { // Adjust endpoint if needed
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          service_id: service.id,
-          client_id: session.user.id,
-          date,
-          time,
-          details,
-        }),
+        body: JSON.stringify(bookingData),
       });
 
       if (!response.ok) {
@@ -87,6 +125,14 @@ function BookingService() {
   if (error && !service) return <div className="service-details-container">Error: {error}</div>;
   if (!service) return <div className="service-details-container">Service not found.</div>;
 
+  const getPosition = () => {
+    if (service.latitude && service.longitude) {
+      return [service.latitude, service.longitude];
+    }
+    return service?.city && governorateCoordinates[service.city] ? governorateCoordinates[service.city] : [36.8065, 10.1815];
+  };
+  const position = getPosition();
+
   return (
     <div className="service-details-container">
       <button className="back-button" onClick={() => navigate(-1)}>
@@ -97,10 +143,17 @@ function BookingService() {
         {/* LEFT SIDE */}
         <div className="left-section">
           <div className="image-wrapper">
-            <img
-              src="https://images.unsplash.com/photo-1581578731548-c64695cc6952"
-              alt={service.title}
-            />
+            <MapContainer center={position} zoom={13} scrollWheelZoom={true} style={{ height: '420px', width: '100%', borderRadius: '15px' }}>
+              <TileLayer
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              />
+              <Marker position={position} icon={locationIcon}>
+                <Popup>
+                  {service.title} <br /> {service.city}
+                </Popup>
+              </Marker>
+            </MapContainer>
             <span className="category-badge">{service.category}</span>
           </div>
 
@@ -127,10 +180,7 @@ function BookingService() {
           <p className="subtitle">Schedule your service appointment</p>
 
           <label>Preferred Date</label>
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-
-          <label>Preferred Time</label>
-          <input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+          <input type="date" value={date} min={minDate} onChange={(e) => setDate(e.target.value)} />
 
           <label>Additional Details</label>
           <textarea
