@@ -15,7 +15,7 @@ export async function updateProfile(profileData) {
   if (!session) throw new Error("No session found");
 
   const headers = { Authorization: `Bearer ${session.token}` };
-  const data = await apiClient.put("/profile", profileData, { headers });
+  const data = await apiClient.put(`/profile/${session.user.id}`, profileData, { headers });
   return { success: true, profile: data };
 }
 
@@ -32,11 +32,10 @@ export async function uploadProfileImage(imageFile) {
     // Do NOT set Content-Type manually — the browser sets it automatically
     // with the correct multipart boundary when using FormData
   };
-
   const response = await apiClient.post(
     `/profile/image/${session.user.id}`,
     formData,   // body (actual file)
-    { headers } // config
+    // { headers } // config
   );
 
   return response;

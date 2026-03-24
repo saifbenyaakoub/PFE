@@ -88,11 +88,13 @@ function ProfilePage() {
         name:       profile?.name       || '',
         email:      profile?.email      || '',
         city:       profile?.city       || '',
-        categories: profile?.categories || []
+        categories: profile?.categories || [],
+        role:profile?.role||''
       });
       setProfileImage(profile?.profileImage || null);
       setIsProvider(profile?.role === 'provider');
     } catch (err) {
+      console.log(err)
       setError('Failed to load profile.');
     } finally {
       setLoading(false);
@@ -145,7 +147,8 @@ function ProfilePage() {
       }
       window.dispatchEvent(new Event('session:updated'));
 
-    } catch {
+    } catch(err) {
+      console.log(err)
       setError("Failed to update profile.");
     } finally {
       setSaving(false);

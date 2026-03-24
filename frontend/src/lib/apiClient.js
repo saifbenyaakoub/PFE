@@ -4,7 +4,7 @@ import toast from "react-hot-toast";
 const apiClient = axios.create({
     baseURL: "http://localhost:5000",
     headers: {
-        "Content-Type": undefined ,
+        "Content-Type": "application/json" ,
     },
 });
 
@@ -14,6 +14,9 @@ apiClient.interceptors.request.use(
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }
+        if (config.data instanceof FormData) {
+          delete  config.headers["Content-Type"]
+        }
         return config;
     },
     (error) => Promise.reject(error)
@@ -22,8 +25,10 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
     (response) => {
         // Extract the standard 'data' envelope from the backend ApiResponse
+   
         if (response.data && response.data.success) {
-            return response.data.data;
+          
+            return response.data.data??response.data 
         }
         return response.data;
     },
