@@ -54,6 +54,11 @@ function Navbar() {
   const name     = user?.name || user?.username || user?.email || '';
   const initials = name.trim().split(/\s+/).map(n => n[0]).join('').toUpperCase().slice(0, 2) || '?';
 
+  const API_URL = "http://localhost:5000";
+  const profileImageUrl = user?.profileImage 
+    ? `${API_URL}/uploads/${user.profileImage}` 
+    : null;
+
   const serviceCategories = [
     { name: "Cleaning", icon: <FaBroom /> },
     { name: "Handyman", icon: <FaWrench /> },
@@ -153,11 +158,11 @@ function Navbar() {
         <div className="nav-auth">
           {session ? (
             <div className="nav-user-wrap" ref={dropdownRef}>
-
+              
               {/* ── Trigger ────────────────────────────────────── */}
               <button className="nav-user-trigger" onClick={toggleDropdown}>
-                {user?.profileImage ? (
-                  <img src={user.profileImage} alt={name} className="nav-avatar-img" />
+                {profileImageUrl ? (
+                  <img src={profileImageUrl} alt={name} className="nav-avatar-img" />
                 ) : (
                   <div className="nav-avatar-initials">{initials}</div>
                 )}
@@ -177,8 +182,8 @@ function Navbar() {
                 <div className="nav-dropdown">
 
                   <div className="nav-dropdown-header">
-                    {user?.profileImage ? (
-                      <img src={user.profileImage} alt={name} className="nav-dropdown-avatar" />
+                    {profileImageUrl ? (
+                      <img src={profileImageUrl} alt={name} className="nav-dropdown-avatar" />
                     ) : (
                       <div className="nav-dropdown-initials">{initials}</div>
                     )}

@@ -136,12 +136,15 @@ function ProfilePage() {
       // reflects the new values instantly without a page reload
       const currentSession = getSession();
       if (currentSession) {
+        const filename = updatedImageUrl.includes('/') 
+        ? updatedImageUrl.split('/').pop() 
+        : updatedImageUrl;
         saveSession({
           ...currentSession,
           user: {
             ...currentSession.user,
             name:         formData.name,
-            profileImage: updatedImageUrl,
+            profileImage: filename,
           }
         });
       }

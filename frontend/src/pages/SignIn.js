@@ -11,21 +11,21 @@ export default function SignIn() {
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  async function onSubmit(e) {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      const session = await signIn({ email, password });
-      saveSession(session);
+async function onSubmit(e) {
+  e.preventDefault();
+  setLoading(true);
+  try {
+    const session = await signIn({ email, password });
+    saveSession(session);
 
-      // role-based redirect
-      navigate(session.user.role === "provider" ? "/provider" : "/client", { replace: true });
-    } catch (err) {
-      // API client handles toast.error automatically.
-    } finally {
-      setLoading(false);
-    }
+    window.dispatchEvent(new Event('session:updated'));
+    navigate(session.user.role === "provider" ? "/provider" : "/client", { replace: true });
+  } catch (err) {
+  
+  } finally {
+    setLoading(false);
   }
+}
 
   return (
     <Card>

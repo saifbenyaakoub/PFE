@@ -7,7 +7,7 @@ import ChooseRole from "./pages/ChooseRole";
 import SignIn from "./pages/SignIn";
 import SignUpClient from "./pages/SignUpClient";
 import SignUpProvider from "./pages/SignUpProvider";
-import ClientHome from "./pages/ClientHome";
+import ProviderDashboard from "./pages/ProviderDashboard";
 import Dashboard from "./pages/Dashboard";
 import HomePage from "./pages/HomePage";
 import ServicesPage from "./pages/ServicesPage";
@@ -28,8 +28,8 @@ export default function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/services" element={<ServicesPage />} />
           <Route path="/tasks" element={<TasksPage />} />
-          <Route path="/client" element={<ClientHome />} />
           <Route path="/Dashboard" element={<Dashboard />} />
+          <Route path="/ProviderDashboard" element={<ProviderDashboard />} />
           <Route path="/profile" element={<ProfilePage />} />
         <Route path="/bookingService/:serviceId" element={<BookingService />} />
         <Route path="/bookingTask/:taskId" element={<BookingTask />} />
