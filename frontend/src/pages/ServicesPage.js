@@ -3,9 +3,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faHammer, faWrench, faRuler, faPaintBrush, faFaucet, faSprayCan, faTaxi ,faCar,
-  faBroom,faLeaf,faBox,faGear, faUser, faStar,
-  faMarker,
-  faLocation,
+  faBroom,faLeaf,faBox,faGear, faStar,
   faLocationDot,
 } from '@fortawesome/free-solid-svg-icons';
 import { getSession } from "../lib/session";

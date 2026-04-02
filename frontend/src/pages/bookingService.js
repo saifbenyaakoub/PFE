@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import "./booking.css";
-import { FaArrowLeft, FaMapMarkerAlt, FaCheckCircle, FaUser, FaCamera, FaTimes } from "react-icons/fa";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { FaArrowLeft, FaMapMarkerAlt, FaCheckCircle, FaUser } from "react-icons/fa";
 import { faLocationDot } from "@fortawesome/free-solid-svg-icons";
 import { getSession } from "../lib/session";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
@@ -34,12 +33,10 @@ function BookingService() {
 
   const [service, setService] = useState(null);
   const [date, setDate] = useState("");
-  const [time, setTime] = useState("");
   const [details, setDetails] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [bookingInProgress, setBookingInProgress] = useState(false);
-  const fileInputRef = useRef(null);
 
   const today = new Date();
   const year = today.getFullYear();
@@ -77,7 +74,7 @@ function BookingService() {
       return;
     }
 
-    if (!date || !time) {
+    if (!date) {
       alert("Please select a preferred date and time.");
       return;
     }
@@ -96,7 +93,6 @@ function BookingService() {
         service_id: service.id,
         client_id: session.user.id,
         date,
-        time,
         details,
       };
 

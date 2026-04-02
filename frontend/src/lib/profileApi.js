@@ -27,11 +27,11 @@ export async function uploadProfileImage(imageFile) {
   const formData = new FormData();
   formData.append("profileImage", imageFile);
 
-  const headers = {
-    Authorization: `Bearer ${session.token}`,
-    // Do NOT set Content-Type manually — the browser sets it automatically
-    // with the correct multipart boundary when using FormData
-  };
+  // const headers = {
+  //   Authorization: `Bearer ${session.token}`,
+  //   // Do NOT set Content-Type manually — the browser sets it automatically
+  //   // with the correct multipart boundary when using FormData
+  // };
   const response = await apiClient.post(
     `/profile/image/${session.user.id}`,
     formData,   // body (actual file)

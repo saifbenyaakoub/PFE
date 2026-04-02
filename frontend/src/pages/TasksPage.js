@@ -3,8 +3,6 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faHammer, faWrench, faRuler, faPaintBrush, faFaucet, faSprayCan, faTaxi, faCar,
   faBroom, faLeaf, faBox, faGear, faStar,
-  faMarker,
-  faLocation,
   faLocationDot,
 } from '@fortawesome/free-solid-svg-icons';
 import { getSession } from "../lib/session";
