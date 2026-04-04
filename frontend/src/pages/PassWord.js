@@ -2,8 +2,6 @@ import React, { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 
 export default function StrengthPassword({ password, setPassword, error, onBlur }) {
-  //console.log("🚀 ~ StrengthPassword ~ password:", password) //ctrl+  alt+l
-  //console.log("🚀 ~ StrengthPassword ~ password:", password) 0
   const [showPassword, setShowPassword] = useState(false);
 
   const criteria = [
