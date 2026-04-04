@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { getSession } from "../lib/session";
-
+import StatusDropdown from './StatusDropdown';
 const API = "http://localhost:5000";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -18,34 +18,32 @@ const resolveImage = (img) => {
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 const Icon = {
-  grid:      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>,
-  briefcase: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>,
-  chevLeft:  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>,
-  chevRight: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>,
-  users:     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
-  star:      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>,
-  dollar:    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>,
-  calendar:  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
-  check:     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>,
-  clock:     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
-  arrow:     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>,
-  trending:  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>,
-  map:       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>,
-  edit:      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
-  eye:       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>,
-  plus:      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
-  trash:     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>,
-  msg:       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
-  x:         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
-  save:      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>,
+  grid: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /></svg>,
+  briefcase: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" /><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" /></svg>,
+  chevLeft: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>,
+  chevRight: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>,
+  users: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>,
+  star: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>,
+  dollar: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>,
+  calendar: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>,
+  check: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>,
+  clock: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>,
+  arrow: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg>,
+  trending: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></svg>,
+  map: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>,
+  edit: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>,
+  eye: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>,
+  plus: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>,
+  trash: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /></svg>,
+  msg: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>,
+  x: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>,
+  save: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" /></svg>,
 };
 
 const STATUS_META = {
-  confirmed:     { label: "Confirmed",   color: "#0ea5e9", bg: "#e0f2fe" },
-  pending:       { label: "Pending",     color: "#f59e0b", bg: "#fef3c7" },
-  "in-progress": { label: "In Progress", color: "#8b5cf6", bg: "#ede9fe" },
-  completed:     { label: "Completed",   color: "#10b981", bg: "#d1fae5" },
-  cancelled:     { label: "Cancelled",   color: "#ef4444", bg: "#fee2e2" },
+  confirmed: { label: "Confirmed", bg: "#e0f2fe", color: "#0284c7" }, // Bleu
+  completed: { label: "Completed", bg: "#dcfce7", color: "#166534" }, // Vert
+  cancelled: { label: "Cancelled", bg: "#fee2e2", color: "#991b1b" }  // Rouge
 };
 
 const Stars = ({ n }) => Array.from({ length: 5 }, (_, i) => (
@@ -73,8 +71,8 @@ const CATEGORIES = ["Plumbing", "Electrical", "Carpentry", "Painting", "Cleaning
 
 function ServiceModal({ service, onClose, onSave }) {
   const [form, setForm] = useState({
-    title:        service?.title        || "",
-    category:    service?.category    || "",
+    title: service?.title || "",
+    category: service?.category || "",
     description: service?.description || "",
   });
   const [saving, setSaving] = useState(false);
@@ -149,22 +147,24 @@ function ServiceModal({ service, onClose, onSave }) {
 
 
 // ── Calendar Tab ──────────────────────────────────────────────────────────────
-function CalendarTab({ bookings, loading, onStatusChange }) {
+function CalendarTab({ bookings, loading, fetchBookings }) {
+  const session = getSession();
+  const token = session?.token;
   const today = new Date();
   const [currentDate, setCurrentDate] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
-  const [selectedDay, setSelectedDay]   = useState(null);
+  const [selectedDay, setSelectedDay] = useState(null);
 
-  const year  = currentDate.getFullYear();
+  const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
 
-  const MONTH_NAMES = ["January","February","March","April","May","June",
-                        "July","August","September","October","November","December"];
-  const DAY_NAMES   = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+  const MONTH_NAMES = ["January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"];
+  const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
   // Build calendar grid (Mon-first)
-  const firstDay  = new Date(year, month, 1);
-  const lastDay   = new Date(year, month + 1, 0);
-  const startDow  = (firstDay.getDay() + 6) % 7; // 0=Mon
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const startDow = (firstDay.getDay() + 6) % 7; // 0=Mon
   const totalDays = lastDay.getDate();
 
   const cells = [];
@@ -182,17 +182,38 @@ function CalendarTab({ bookings, loading, onStatusChange }) {
     bookingsByDate[key].push(b);
   });
 
+  const handleStatusUpdate = async (bookingId, newStatus) => {
+    try {
+      const response = await fetch(`${API}/bookings/${bookingId}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      if (response.ok) {
+        fetchBookings(); 
+      } else {
+        console.error("Erreur lors de la mise à jour du statut");
+      }
+    } catch (error) {
+      console.error("Erreur réseau :", error);
+    }
+  };
+
   const pad = n => String(n).padStart(2, "0");
   const cellKey = d => `${year}-${pad(month + 1)}-${pad(d)}`;
 
-  const todayStr = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
+  const todayStr = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
 
   // Bookings for selected day
-  const selectedKey      = selectedDay ? cellKey(selectedDay) : null;
+  const selectedKey = selectedDay ? cellKey(selectedDay) : null;
   const selectedBookings = selectedKey ? (bookingsByDate[selectedKey] || []) : [];
 
   // Accepted bookings = confirmed + in-progress (shown on calendar)
-  const visibleStatuses = ["confirmed", "in-progress", "pending", "completed"];
+  const visibleStatuses = ["confirmed", "completed", "cancelled"];
 
   const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
   const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
@@ -208,11 +229,11 @@ function CalendarTab({ bookings, loading, onStatusChange }) {
           {/* Header */}
           <div className="db-cal-header">
             <button className="db-icon-btn" onClick={prevMonth}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
             </button>
             <span className="db-cal-month">{MONTH_NAMES[month]} {year}</span>
             <button className="db-icon-btn" onClick={nextMonth}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
             </button>
           </div>
 
@@ -225,10 +246,10 @@ function CalendarTab({ bookings, loading, onStatusChange }) {
             {/* Cells */}
             {cells.map((day, i) => {
               if (!day) return <div key={`e-${i}`} className="db-cal-cell db-cal-cell--empty" />;
-              const key      = cellKey(day);
-              const dayBks   = (bookingsByDate[key] || []).filter(b => visibleStatuses.includes(b.status));
-              const isToday  = key === todayStr;
-              const isSel    = selectedDay === day && month === currentDate.getMonth();
+              const key = cellKey(day);
+              const dayBks = (bookingsByDate[key] || []).filter(b => visibleStatuses.includes(b.status));
+              const isToday = key === todayStr;
+              const isSel = selectedDay === day && month === currentDate.getMonth();
               return (
                 <div
                   key={key}
@@ -268,9 +289,9 @@ function CalendarTab({ bookings, loading, onStatusChange }) {
         <div className="db-cal-detail">
           {!selectedDay ? (
             <div className="db-card" style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10 }}>
-              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
               <p style={{ fontSize: 13, color: "#9ca3af", textAlign: "center" }}>
-                Select a day to see<br/>its bookings
+                Select a day to see<br />its bookings
               </p>
             </div>
           ) : (
@@ -289,7 +310,16 @@ function CalendarTab({ bookings, loading, onStatusChange }) {
                   <div key={b.id} className="db-cal-booking-card">
                     <div className="db-cal-booking-top">
                       <div className="db-booking-avatar" style={{ width: 34, height: 34, fontSize: 11 }}>
-                        {(b.client_name || b.client || "?").split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+                        {b.client_image ? (
+                          <img
+                            src={resolveImage(b.client_image)}
+                            alt={b.client_name}
+                            className="db-avatar-img"
+                            onError={(e) => { e.target.style.display = 'none'; }}
+                          />
+                        ) : (
+                          (b.client_name || "Client").split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()
+                        )}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13.5, fontWeight: 600, color: "#0a0a0a" }}>{b.client_name || b.client}</div>
@@ -300,34 +330,22 @@ function CalendarTab({ bookings, loading, onStatusChange }) {
 
                     <div className="db-cal-booking-meta">
                       <span>
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{display:"inline",verticalAlign:"middle",marginRight:3}}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline", verticalAlign: "middle", marginRight: 3 }}><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
                         {b.time || "—"}
                       </span>
                       {b.city && (
                         <span>
-                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{display:"inline",verticalAlign:"middle",marginRight:3}}><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline", verticalAlign: "middle", marginRight: 3 }}><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
                           {b.city}
                         </span>
                       )}
                     </div>
 
                     {/* Status changer */}
-                    <select
-                      value={b.status}
-                      onChange={e => onStatusChange(b.id, e.target.value)}
-                      style={{
-                        marginTop: 10, width: "100%",
-                        padding: "6px 10px", borderRadius: 8,
-                        border: "1.5px solid #e5e7eb", fontSize: 12,
-                        fontWeight: 600, cursor: "pointer", outline: "none",
-                        background: STATUS_META[b.status]?.bg,
-                        color: STATUS_META[b.status]?.color,
-                      }}
-                    >
-                      {Object.entries(STATUS_META).map(([k, v]) => (
-                        <option key={k} value={k}>{v.label}</option>
-                      ))}
-                    </select>
+                    <StatusDropdown
+                      booking={b}
+                      onStatusChange={handleStatusUpdate}
+                    />
                   </div>
                 ))
               )}
@@ -341,28 +359,29 @@ function CalendarTab({ bookings, loading, onStatusChange }) {
 
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function ProviderDashboard() {
-  const [tab, setTab]       = useState("overview");
-  const navigate            = useNavigate();
-  const session             = getSession();
-  const user                = session?.user;
-  const token               = session?.token;
-  const userId              = user?.id;
-  const name                = user?.name || "Provider";
-  const initials            = name.trim().split(/\s+/).map(n => n[0]).join("").toUpperCase().slice(0, 2);
-  const profileImageUrl     = resolveImage(user?.profileImage);
+  const [tab, setTab] = useState("overview");
+  const navigate = useNavigate();
+  const session = getSession();
+  const user = session?.user;
+  const token = session?.token;
+  const userId = user?.id;
+  const name = user?.name || "Provider";
+  const initials = name.trim().split(/\s+/).map(n => n[0]).join("").toUpperCase().slice(0, 2);
+  const profileImageUrl = resolveImage(user?.profileImage);
 
   // ── State ─────────────────────────────────────────────────────────────────
-  const [stats,     setStats]     = useState(null);
-  const [bookings,  setBookings]  = useState([]);
-  const [services,  setServices]  = useState([]);
-  const [reviews,   setReviews]   = useState([]);
-  console.log("🚀 ~ ProviderDashboard ~ reviews:", reviews)
+  const [stats, setStats] = useState(null);
+  const [bookings, setBookings] = useState([]);
+  const [bookingRequests, setBookingRequests] = useState([]);
+  const [loadingRequests, setLoadingRequests] = useState(true);
+  const [services, setServices] = useState([]);
+  const [reviews, setReviews] = useState([]);
   const [ratingSummary, setRatingSummary] = useState(null);
 
-  const [loadingStats,    setLoadingStats]    = useState(true);
+  const [loadingStats, setLoadingStats] = useState(true);
   const [loadingBookings, setLoadingBookings] = useState(true);
   const [loadingServices, setLoadingServices] = useState(true);
-  const [loadingReviews,  setLoadingReviews]  = useState(true);
+  const [loadingReviews, setLoadingReviews] = useState(true);
 
   const [serviceModal, setServiceModal] = useState(null); // null | "add" | serviceObject
 
@@ -370,10 +389,8 @@ export default function ProviderDashboard() {
   const fetchStats = useCallback(async () => {
     try {
       setLoadingStats(true);
-      console.log(userId);
       const res = await fetch(`${API}/dashboard/stats/${userId}?role=provider`, { headers: authHeaders(token) });
       const data = await res.json();
-      console.log(data)
       setStats(data);
     } catch { setStats(null); }
     finally { setLoadingStats(false); }
@@ -389,6 +406,26 @@ export default function ProviderDashboard() {
     finally { setLoadingBookings(false); }
   }, [userId, token]);
 
+  const fetchBookingRequests = useCallback(async () => {
+    try {
+      setLoadingRequests(true);
+
+      const res = await fetch(
+        `${API}/dashboard/provider/${userId}/booking-requests`,
+        { headers: authHeaders(token) }
+      );
+
+      const data = await res.json();
+
+      setBookingRequests(Array.isArray(data.data) ? data.data : []);
+
+    } catch (err) {
+      console.error("Erreur booking requests:", err);
+      setBookingRequests([]);
+    } finally {
+      setLoadingRequests(false);
+    }
+  }, [userId, token]);
   const fetchServices = useCallback(async () => {
     try {
       setLoadingServices(true);
@@ -404,8 +441,8 @@ export default function ProviderDashboard() {
     try {
       setLoadingReviews(true);
       const [revRes, sumRes] = await Promise.all([
-        fetch(`${API}/reviews/provider/${userId}`,        { headers: authHeaders(token) }),
-        fetch(`${API}/reviews/summary/${userId}`,         { headers: authHeaders(token) }),
+        fetch(`${API}/reviews/provider/${userId}`, { headers: authHeaders(token) }),
+        fetch(`${API}/reviews/summary/${userId}`, { headers: authHeaders(token) }),
       ]);
       const revData = await revRes.json();
       const sumData = await sumRes.json();
@@ -422,7 +459,8 @@ export default function ProviderDashboard() {
     fetchBookings();
     fetchServices();
     fetchReviews();
-  }, [fetchStats, fetchBookings, fetchServices, fetchReviews]);
+    fetchBookingRequests();
+  }, [fetchStats, fetchBookings, fetchServices, fetchReviews, fetchBookingRequests]);
 
   // ── Actions ────────────────────────────────────────────────────────────────
   const handleStatusChange = async (bookingId, newStatus) => {
@@ -440,26 +478,39 @@ export default function ProviderDashboard() {
   // Accept → confirmed (appears in calendar)
   const handleAcceptBooking = async (bookingId) => {
     try {
-      await fetch(`${API}/bookings/${bookingId}/status`, {
+      const response = await fetch(`${API}/dashboard/bookings/${bookingId}/status`, { // Ajout de /dashboard
         method: "PUT",
         headers: authHeaders(token),
         body: JSON.stringify({ status: "confirmed" }),
       });
-      fetchBookings();
-      fetchStats();
+
+      if (response.ok) {
+        fetchBookingRequests();
+        fetchStats();
+      }
     } catch (err) { console.error(err); }
   };
 
   // Decline → deleted entirely
   const handleDeclineBooking = async (bookingId) => {
+    if (!window.confirm("Voulez-vous vraiment refuser cette demande ?")) return;
+
     try {
-      await fetch(`${API}/bookings/${bookingId}`, {
+      const response = await fetch(`${API}/dashboard/bookings/${bookingId}`, {
         method: "DELETE",
         headers: authHeaders(token),
       });
-      fetchBookings();
-      fetchStats();
-    } catch (err) { console.error(err); }
+
+      if (response.ok) {
+        fetchBookingRequests();
+        fetchStats();
+      } else {
+        const errorData = await response.json();
+        console.error("Erreur serveur:", errorData.message);
+      }
+    } catch (err) {
+      console.error("Erreur réseau:", err);
+    }
   };
 
   const handleToggleService = async (serviceId) => {
@@ -484,58 +535,57 @@ export default function ProviderDashboard() {
     } catch (err) { console.error(err); }
   };
 
-const handleSaveService = async (form) => {
-  const isEdit = serviceModal && serviceModal !== "add";
-  const url    = isEdit ? `${API}/services/${serviceModal.id}` : `${API}/services`;
-  const method = isEdit ? "PUT" : "POST";
+  const handleSaveService = async (form) => {
+    const isEdit = serviceModal && serviceModal !== "add";
+    const url = isEdit ? `${API}/services/${serviceModal.id}` : `${API}/services`;
+    const method = isEdit ? "PUT" : "POST";
 
-  try {
-    const response = await fetch(url, {
-      method,
-      headers: {
-        ...authHeaders(token),
-        "Content-Type": "application/json", 
-      },
-      body: JSON.stringify({ 
-        title: form.title,
-        category: form.category,
-        description: form.description
-        
-      }),
-    });
-    console.log(response);
-    const contentType = response.headers.get("content-type");
-    if (!contentType || !contentType.includes("application/json")) {
-      const textError = await response.text();
-      console.error("Erreur serveur (HTML) :", textError);
-      throw new Error("Erreur de connexion au serveur.");
+    try {
+      const response = await fetch(url, {
+        method,
+        headers: {
+          ...authHeaders(token),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: form.title,
+          category: form.category,
+          description: form.description
+
+        }),
+      });
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        const textError = await response.text();
+        console.error("Erreur serveur (HTML) :", textError);
+        throw new Error("Erreur de connexion au serveur.");
+      }
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "Erreur lors de l'enregistrement");
+      }
+
+      // Succès
+      setServiceModal(null);
+      fetchServices();
+      fetchStats();
+    } catch (err) {
+      console.error("Erreur de sauvegarde :", err);
     }
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      throw new Error(result.message || "Erreur lors de l'enregistrement");
-    }
-
-    // Succès
-    setServiceModal(null);
-    fetchServices();
-    fetchStats();
-  } catch (err) {
-    console.error("Erreur de sauvegarde :", err);
-  }
-};
+  };
 
   // ── Derived data ───────────────────────────────────────────────────────────
-  const upcomingBookings = bookings.filter(b => b.status === "pending");
+  const upcomingBookings = bookingRequests;
 
   const recentReviews = reviews.slice(0, 3);
 
   const TABS = [
-    { id: "overview",  label: "Overview",  icon: Icon.grid      },
-    { id: "calendar",  label: "Calendar",  icon: Icon.calendar  },
-    { id: "services",  label: "Services",  icon: Icon.briefcase },
-    { id: "reviews",   label: "Reviews",   icon: Icon.star      },
+    { id: "overview", label: "Overview", icon: Icon.grid },
+    { id: "calendar", label: "Calendar", icon: Icon.calendar },
+    { id: "services", label: "Services", icon: Icon.briefcase },
+    { id: "reviews", label: "Reviews", icon: Icon.star },
   ];
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -555,7 +605,7 @@ const handleSaveService = async (form) => {
       {/* ── Sidebar ── */}
       <aside className="db-sidebar">
         <div className="db-brand">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" /></svg>
           FixHub
         </div>
 
@@ -604,10 +654,10 @@ const handleSaveService = async (form) => {
             {/* KPI cards */}
             <div className="db-kpi-grid">
               {loadingStats ? <Spinner /> : [
-                { label: "Total Earnings",  value: `${stats?.total_earnings  ?? 0} TND`, icon: Icon.dollar,   accent: "#10b981", trend: `${stats?.total_reviews ?? 0} reviews`    },
-                { label: "Completed Jobs",  value: stats?.completed_jobs  ?? 0,          icon: Icon.check,    accent: "#0ea5e9", trend: `${stats?.active_bookings ?? 0} active`   },
-                { label: "Active Bookings", value: stats?.active_bookings ?? 0,          icon: Icon.calendar, accent: "#8b5cf6", trend: "Pending + confirmed"                      },
-                { label: "Avg. Rating",     value: `${stats?.avg_rating ?? "—"} / 5`,   icon: Icon.star,     accent: "#f59e0b", trend: `${stats?.total_reviews ?? 0} reviews`    },
+                { label: "Total Earnings", value: `${stats?.total_earnings ?? 0} TND`, icon: Icon.dollar, accent: "#10b981", trend: `${stats?.total_reviews ?? 0} reviews` },
+                { label: "Completed Jobs", value: stats?.completed_jobs ?? 0, icon: Icon.check, accent: "#0ea5e9", trend: `${stats?.active_bookings ?? 0} active` },
+                { label: "Active Bookings", value: stats?.active_bookings ?? 0, icon: Icon.calendar, accent: "#8b5cf6", trend: "Pending + confirmed" },
+                { label: "Avg. Rating", value: `${stats?.avg_rating ?? "—"} / 5`, icon: Icon.star, accent: "#f59e0b", trend: `${stats?.total_reviews ?? 0} reviews` },
               ].map((k, i) => (
                 <div className="db-kpi" key={i} style={{ "--accent": k.accent }}>
                   <div className="db-kpi-icon">{k.icon}</div>
@@ -627,19 +677,35 @@ const handleSaveService = async (form) => {
                   <h3>Booking Requests</h3>
                   <button className="db-link" onClick={() => setTab("calendar")}>View all {Icon.arrow}</button>
                 </div>
-                {loadingBookings ? <Spinner /> : upcomingBookings.length === 0
+                {loadingRequests ? <Spinner /> : upcomingBookings.length === 0
                   ? <p className="db-empty-small">No pending booking requests.</p>
-                  : upcomingBookings.map(b => (
-                    <div className="db-booking-row" key={b.id}>
+                  : upcomingBookings.map(b => {
+                    return <div className="db-booking-row" key={b.id}>
                       <div className="db-booking-avatar">
-                        {(b.client_name || b.client || "?").split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+
+                        {b.client_image ? (
+                          <img
+                            src={resolveImage(b.client_image)}
+                            alt={b.client_name}
+                            className="db-avatar-img"
+                            onError={(e) => { e.target.style.display = 'none'; }} // Repli si l'image échoue
+                          />
+                        ) : (
+                          (b.client_name || "Client").split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()
+                        )}
                       </div>
                       <div className="db-booking-info">
                         <span className="db-booking-client">{b.client_name || b.client}</span>
+                        {b.amount && <span className="db-booking-price">{b.amount} TND</span>}
                         <span className="db-booking-meta">
                           {Icon.clock} {new Date(b.date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} · {b.time}
                         </span>
                         <span className="db-booking-service">{b.service_name || b.service}</span>
+                        {b.details && (
+                          <p className="db-booking-details-text">
+                            <strong>client details:</strong> {b.details}
+                          </p>
+                        )}
                       </div>
                       <div className="db-booking-right">
                         <button
@@ -657,8 +723,8 @@ const handleSaveService = async (form) => {
                           {Icon.x} Decline
                         </button>
                       </div>
-                    </div>
-                  ))
+                    </div>;
+                  })
                 }
               </div>
 
@@ -693,10 +759,22 @@ const handleSaveService = async (form) => {
                 ? <p className="db-empty-small">No reviews yet.</p>
                 : (
                   <div className="db-reviews-row">
-                    {recentReviews.map(r => (
-                      <div className="db-review-card" key={r.id}>
+                    {recentReviews.map(r => {
+                      return <div className="db-review-card" key={r.id}>
                         <div className="db-review-top">
-                          <div className="db-review-avatar">{(r.client_name || r.client || "?")[0].toUpperCase()}</div>
+                          <div className="db-review-avatar">
+                            {r.client_image ? (
+                              <img
+                                src={resolveImage(r.client_image)}
+                                alt={r.client_name}
+                                className="db-avatar-img"
+                                onError={(e) => { e.target.style.display = 'none'; }} // Repli si l'image échoue
+                              />
+                            ) : (
+                              (r.client_name || "Client").split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()
+                            )}
+
+                          </div>
                           <div>
                             <div className="db-review-client">{r.client_name || r.client}</div>
                             <Stars n={r.rating} />
@@ -707,8 +785,8 @@ const handleSaveService = async (form) => {
                         </div>
                         <p className="db-review-text">"{r.comment || r.text}"</p>
                         <span className="db-review-tag">{r.service_name || r.service}</span>
-                      </div>
-                    ))}
+                      </div>;
+                    })}
                   </div>
                 )
               }
@@ -721,7 +799,7 @@ const handleSaveService = async (form) => {
           <CalendarTab
             bookings={bookings}
             loading={loadingBookings}
-            onStatusChange={handleStatusChange}
+            fetchBookings={fetchBookings} 
           />
         )}
 
@@ -773,59 +851,140 @@ const handleSaveService = async (form) => {
         {tab === "reviews" && (
           <div className="db-fade">
             {loadingReviews ? <Spinner /> : (
-              <>
-                {/* Summary bar */}
-                <div className="db-rating-summary">
-                  <div className="db-rating-big">
-                    <span className="db-rating-num">{ratingSummary?.avg_rating ?? "—"}</span>
-                    <Stars n={parseFloat(ratingSummary?.avg_rating ?? 0)} />
-                    <span className="db-rating-count">{ratingSummary?.total ?? 0} reviews</span>
+              <div className="db-rv-shell">
+
+                {/* ── LEFT — Summary panel ── */}
+                <div className="db-rv-summary">
+
+                  {/* Score hero */}
+                  <div className="db-card db-rv-hero">
+                    <div className="db-rv-score">{ratingSummary?.avg_rating ?? "—"}</div>
+                    <div className="db-rv-stars">
+                      {Array.from({ length: 5 }, (_, i) => {
+                        const filled = i < Math.round(parseFloat(ratingSummary?.avg_rating ?? 0));
+                        return (
+                          <svg key={i} width="20" height="20" viewBox="0 0 24 24"
+                            fill={filled ? "#f59e0b" : "none"}
+                            stroke={filled ? "#f59e0b" : "#d1d5db"}
+                            strokeWidth="1.5">
+                            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                          </svg>
+                        );
+                      })}
+                    </div>
+                    <p className="db-rv-total">
+                      Based on <strong>{ratingSummary?.total ?? 0}</strong> reviews
+                    </p>
+
+                    {/* KPI row */}
+                    <div className="db-rv-kpi-row">
+                      <div className="db-rv-kpi">
+                        <span>{ratingSummary?.five ?? 0}</span>
+                        <label>5-star</label>
+                      </div>
+                      <div className="db-rv-kpi-sep" />
+                      <div className="db-rv-kpi">
+                        <span>{parseInt(ratingSummary?.four ?? 0) + parseInt(ratingSummary?.three ?? 0)}</span>
+                        <label>3-4 star</label>
+                      </div>
+                      <div className="db-rv-kpi-sep" />
+                      <div className="db-rv-kpi">
+                        <span>{parseInt(ratingSummary?.two ?? 0) + parseInt(ratingSummary?.one ?? 0)}</span>
+                        <label>1-2 star</label>
+                      </div>
+                    </div>
                   </div>
-                  <div className="db-rating-bars">
+
+                  {/* Rating breakdown */}
+                  <div className="db-card" style={{ marginTop: 16 }}>
+                    <p className="db-rv-breakdown-title">Rating breakdown</p>
                     {[5, 4, 3, 2, 1].map(n => {
-                      const key   = ["five","four","three","two","one"][5 - n];
+                      const key = ["five", "four", "three", "two", "one"][5 - n];
                       const count = parseInt(ratingSummary?.[key] ?? 0);
                       const total = parseInt(ratingSummary?.total ?? 1);
-                      const pct   = total > 0 ? Math.round((count / total) * 100) : 0;
+                      const pct = total > 0 ? Math.round((count / total) * 100) : 0;
                       return (
-                        <div className="db-rating-bar-row" key={n}>
-                          <span>{n}★</span>
-                          <div className="db-rating-bar-track">
-                            <div className="db-rating-bar-fill" style={{ width: `${pct}%` }} />
+                        <div className="db-rv-bar-row" key={n}>
+                          <div className="db-rv-bar-label">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="#f59e0b" stroke="none">
+                              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                            </svg>
+                            {n}
                           </div>
-                          <span className="db-rating-bar-pct">{pct}%</span>
+                          <div className="db-rv-bar-track">
+                            <div className="db-rv-bar-fill" style={{ width: `${pct}%`, opacity: 0.3 + (n / 5) * 0.7 }} />
+                          </div>
+                          <span className="db-rv-bar-count">{count}</span>
                         </div>
                       );
                     })}
                   </div>
                 </div>
 
-                <div className="db-reviews-list">
-                  {reviews.length === 0
-                    ? <p className="db-empty-small" style={{ textAlign: "center", padding: 32 }}>No reviews yet.</p>
-                    : reviews.map(r => (
-                      <div className="db-review-full" key={r.id}>
-                        <div className="db-review-full-top">
-                          <div className="db-review-avatar db-review-avatar--lg">
-                            {(r.client_name || r.client || "?")[0].toUpperCase()}
+                {/* ── RIGHT — Reviews list ── */}
+                <div className="db-rv-list">
+                  {reviews.length === 0 ? (
+                    <div className="db-card" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 48, gap: 12 }}>
+                      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" strokeWidth="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>
+                      <p style={{ fontSize: 14, color: "#9ca3af", fontWeight: 500 }}>No reviews yet</p>
+                      <p style={{ fontSize: 12.5, color: "#c4c9d4", textAlign: "center" }}>Complete jobs to start receiving client reviews</p>
+                    </div>
+                  ) : reviews.map((r, idx) => {
+                    const COLORS = ["#6366f1", "#0ea5e9", "#10b981", "#f59e0b", "#ec4899", "#8b5cf6", "#14b8a6"];
+                    const avatarColor = COLORS[idx % COLORS.length];
+                    const dateStr = new Date(r.created_at || r.date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+                    return (
+                      <div className="db-rv-card" key={r.id}>
+                        {/* Top row */}
+                        <div className="db-rv-card-top">
+                          <div className="db-rv-card-avatar" style={{ background: avatarColor }}>
+                            {r.client_image ? (
+                              <img
+                                src={resolveImage(r.client_image)}
+                                alt={r.client_name}
+                                className="db-avatar-img"
+                                onError={(e) => { e.target.style.display = 'none'; }} // Repli si l'image échoue
+                              />
+                            ) : (
+                              (r.client_name || "Client").split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()
+                            )}
                           </div>
-                          <div className="db-review-full-info">
-                            <span className="db-review-client">{r.client_name || r.client}</span>
-                            <Stars n={r.rating} />
-                          </div>
-                          <div style={{ marginLeft: "auto", textAlign: "right" }}>
-                            <span className="db-review-tag">{r.service_name || r.service}</span>
-                            <div className="db-review-date" style={{ marginTop: 4 }}>
-                              {new Date(r.created_at || r.date).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                          <div className="db-rv-card-meta">
+                            <span className="db-rv-card-name">{r.client_name || r.client}</span>
+                            <div className="db-rv-card-stars">
+                              {Array.from({ length: 5 }, (_, i) => (
+                                <svg key={i} width="13" height="13" viewBox="0 0 24 24"
+                                  fill={i < r.rating ? "#f59e0b" : "none"}
+                                  stroke={i < r.rating ? "#f59e0b" : "#d1d5db"}
+                                  strokeWidth="1.5">
+                                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                                </svg>
+                              ))}
+                              <span className="db-rv-card-rating">{r.rating}.0</span>
                             </div>
                           </div>
+                          <div className="db-rv-card-right">
+                            <span className="db-rv-card-service">{r.service_name || r.service}</span>
+                            <span className="db-rv-card-date">{dateStr}</span>
+                          </div>
                         </div>
-                        <p className="db-review-text" style={{ marginTop: 12 }}>"{r.comment || r.text}"</p>
+
+                        {/* Quote */}
+                        {(r.comment || r.text) && (
+                          <div className="db-rv-card-quote">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="#e5e7eb" style={{ flexShrink: 0, marginTop: 2 }}>
+                              <path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z" />
+                              <path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z" />
+                            </svg>
+                            <p className="db-rv-card-text">{r.comment || r.text}</p>
+                          </div>
+                        )}
                       </div>
-                    ))
-                  }
+                    );
+                  })}
                 </div>
-              </>
+
+              </div>
             )}
           </div>
         )}
@@ -872,19 +1031,19 @@ const STYLES = `
   .db-kpi-value { font-family: 'Sora', sans-serif; font-size: 22px; font-weight: 800; color: #0a0a0a; margin-bottom: 5px; }
   .db-kpi-trend { display: flex; align-items: center; gap: 4px; font-size: 11.5px; color: #10b981; font-weight: 500; }
   .db-two-col { display: grid; grid-template-columns: 1.4fr 1fr; gap: 20px; }
-  .db-card { background: #fff; border: 1px solid #f1f5f9; border-radius: 14px; padding: 22px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+  .db-card { background: #ffffff; border: 1px solid #f1f5f9; border-radius: 16px; padding: 24px; box-shadow:0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05); }
   .db-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
   .db-card-head h3 { font-family: 'Sora', sans-serif; font-size: 15px; font-weight: 700; color: #0a0a0a; }
   .db-link { display: inline-flex; align-items: center; gap: 4px; background: none; border: none; font-size: 12.5px; font-weight: 600; color: #6b7280; cursor: pointer; transition: color 0.15s; }
   .db-link:hover { color: #0a0a0a; }
-  .db-booking-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid #f8fafc; }
+  .db-booking-row { display: grid; align-items: start; gap: 20px; padding: 20px 0; border-bottom: 1px solid #f1f5f9;grid-template-columns: auto 1fr auto; }
   .db-booking-row:last-child { border-bottom: none; }
-  .db-booking-avatar { width: 38px; height: 38px; border-radius: 10px; background: #f1f5f9; color: #475569; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; font-family: 'Sora', sans-serif; flex-shrink: 0; }
+  .db-booking-avatar { width: 48px; height: 48px; border-radius: 12px; background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%); color: #64748b; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; font-family: 'Sora', sans-serif; flex-shrink: 0;box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05); }
   .db-booking-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-  .db-booking-client { font-size: 13.5px; font-weight: 600; color: #0a0a0a; }
-  .db-booking-meta { display: flex; align-items: center; gap: 4px; font-size: 11.5px; color: #9ca3af; }
+  .db-booking-client { font-size: 16px; font-weight: 700; color: #0f172a;font-family: 'Sora', sans-serif;margin-bottom: 4px; }
+  .db-booking-meta { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #64748b; }
   .db-booking-service { font-size: 12px; color: #6b7280; }
-  .db-booking-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+  .db-booking-right { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
   .db-booking-amount { font-size: 13px; font-weight: 700; color: #0a0a0a; }
   .db-service-row { display: flex; align-items: center; gap: 10px; padding: 11px 0; border-bottom: 1px solid #f8fafc; }
   .db-service-row:last-child { border-bottom: none; }
@@ -948,41 +1107,148 @@ const STYLES = `
   .db-svc-btn { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 8px; border-radius: 8px; background: #f8f9fc; border: 1px solid #f1f5f9; font-size: 12.5px; font-weight: 600; color: #475569; cursor: pointer; transition: all 0.15s; }
   .db-svc-btn:hover { background: #0a0a0a; color: #fff; border-color: #0a0a0a; }
   .db-svc-btn--danger:hover { background: #fef2f2; color: #dc2626; border-color: #fecaca; }
-  .db-rating-summary { background: #fff; border: 1px solid #f1f5f9; border-radius: 14px; padding: 24px; display: flex; gap: 40px; align-items: center; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
-  .db-rating-big { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 100px; }
-  .db-rating-num { font-family: 'Sora', sans-serif; font-size: 48px; font-weight: 800; color: #0a0a0a; line-height: 1; }
-  .db-rating-count { font-size: 12px; color: #9ca3af; }
-  .db-rating-bars { flex: 1; display: flex; flex-direction: column; gap: 8px; }
-  .db-rating-bar-row { display: flex; align-items: center; gap: 10px; font-size: 12.5px; color: #6b7280; }
-  .db-rating-bar-track { flex: 1; height: 7px; background: #f1f5f9; border-radius: 4px; overflow: hidden; }
-  .db-rating-bar-fill { height: 100%; background: #f59e0b; border-radius: 4px; transition: width 0.5s ease; }
-  .db-rating-bar-pct { min-width: 34px; text-align: right; font-weight: 600; }
-  .db-reviews-list { display: flex; flex-direction: column; gap: 14px; }
-  .db-review-full { background: #fff; border: 1px solid #f1f5f9; border-radius: 14px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
-  .db-review-full-top { display: flex; align-items: center; gap: 12px; }
-  .db-review-full-info { display: flex; flex-direction: column; gap: 3px; }
+  /* ── Reviews redesign ── */
+  .db-rv-shell { display: grid; grid-template-columns: 280px 1fr; gap: 20px; align-items: start; }
+  .db-rv-summary { display: flex; flex-direction: column; position: sticky; top: 24px; }
+
+  /* Hero score card */
+  .db-rv-hero { text-align: center; padding: 28px 20px; }
+  .db-rv-score { font-family: 'Sora', sans-serif; font-size: 64px; font-weight: 800; color: #0a0a0a; line-height: 1; margin-bottom: 10px; }
+  .db-rv-stars { display: flex; align-items: center; justify-content: center; gap: 3px; margin-bottom: 8px; }
+  .db-rv-total { font-size: 12.5px; color: #9ca3af; margin-bottom: 20px; }
+  .db-rv-total strong { color: #374151; font-weight: 700; }
+
+  /* KPI row inside hero */
+  .db-rv-kpi-row { display: flex; align-items: center; justify-content: center; gap: 0; border: 1px solid #f1f5f9; border-radius: 12px; overflow: hidden; }
+  .db-rv-kpi { flex: 1; padding: 12px 8px; text-align: center; }
+  .db-rv-kpi span { display: block; font-family: 'Sora', sans-serif; font-size: 18px; font-weight: 800; color: #0a0a0a; }
+  .db-rv-kpi label { font-size: 10.5px; color: #9ca3af; font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; }
+  .db-rv-kpi-sep { width: 1px; height: 40px; background: #f1f5f9; flex-shrink: 0; }
+
+  /* Breakdown */
+  .db-rv-breakdown-title { font-family: 'Sora', sans-serif; font-size: 12px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 14px; }
+  .db-rv-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .db-rv-bar-row:last-child { margin-bottom: 0; }
+  .db-rv-bar-label { display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; color: #374151; min-width: 28px; }
+  .db-rv-bar-track { flex: 1; height: 8px; background: #f1f5f9; border-radius: 99px; overflow: hidden; }
+  .db-rv-bar-fill { height: 100%; background: #f59e0b; border-radius: 99px; transition: width 0.6s ease; }
+  .db-rv-bar-count { font-size: 12px; font-weight: 600; color: #9ca3af; min-width: 24px; text-align: right; }
+
+  /* Reviews list */
+  .db-rv-list { display: flex; flex-direction: column; gap: 14px; }
+
+  .db-rv-card { background: #fff; border: 1px solid #f1f5f9; border-radius: 16px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: box-shadow 0.2s, transform 0.2s; }
+  .db-rv-card:hover { box-shadow: 0 6px 20px rgba(0,0,0,0.07); transform: translateY(-2px); }
+
+  .db-rv-card-top { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 14px; }
+  .db-rv-card-avatar { width: 42px; height: 42px; border-radius: 12px; color: #fff; display: flex; align-items: center; justify-content: center; font-family: 'Sora', sans-serif; font-size: 15px; font-weight: 800; flex-shrink: 0; }
+  .db-rv-card-meta { flex: 1; min-width: 0; }
+  .db-rv-card-name { display: block; font-size: 14px; font-weight: 700; color: #0a0a0a; margin-bottom: 5px; }
+  .db-rv-card-stars { display: flex; align-items: center; gap: 2px; }
+  .db-rv-card-rating { font-size: 12px; font-weight: 700; color: #f59e0b; margin-left: 5px; }
+  .db-rv-card-right { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex-shrink: 0; }
+  .db-rv-card-service { display: inline-block; background: #f1f5f9; color: #475569; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+  .db-rv-card-date { font-size: 11.5px; color: #9ca3af; }
+
+  .db-rv-card-quote { display: flex; gap: 10px; background: #fafafa; border-radius: 10px; padding: 12px 14px; border-left: 3px solid #f59e0b; }
+  .db-rv-card-text { font-size: 13.5px; color: #4b5563; line-height: 1.65; font-style: italic; }
+
+  @media (max-width: 900px) { .db-rv-shell { grid-template-columns: 1fr; } .db-rv-summary { position: static; } }
   @media (max-width: 1100px) { .db-kpi-grid { grid-template-columns: repeat(2, 1fr); } .db-two-col { grid-template-columns: 1fr; } .db-reviews-row { grid-template-columns: 1fr 1fr; } }
   @media (max-width: 768px) { .db-sidebar { display: none; } .db-main { padding: 20px 16px; } .db-kpi-grid { grid-template-columns: 1fr 1fr; } .db-reviews-row { grid-template-columns: 1fr; } .db-rating-summary { flex-direction: column; gap: 20px; } .db-table th:nth-child(4), .db-table td:nth-child(4) { display: none; } }
   @media (max-width: 480px) { .db-kpi-grid { grid-template-columns: 1fr; } }
 
+  .db-accept-btn, .db-decline-btn {
+  border: none;
+  border-radius: 10px;
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+  }
+  .db-select-wrapper {
+  position: relative;
+  width: 100%;
+  margin-top: 10px;
+  }
+  .db-status-select {
+  appearance: none; /* Supprime le style natif du navigateur */
+  -webkit-appearance: none;
+  width: 100%;
+  padding: 8px 14px;
+  padding-right: 36px; /* Espace pour la flèche */
+  border-radius: 10px;
+  border: 1px solid transparent;
+  font-family: 'Sora', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  }
+  .db-status-select:hover {
+  filter: brightness(0.95);
+  }
+  .db-status-select:focus {
+  border-color: currentColor; /* Prend la couleur du texte dynamique */
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05);
+  }
+  .db-select-wrapper::after {
+  content: "";
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 12px;
+  height: 12px;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-size: contain;
+  background-repeat: no-repeat;
+  pointer-events: none; /* Pour que le clic passe à travers et ouvre le menu */
+  opacity: 0.7;
+  }
+  .db-status-option {
+  background-color: #ffffff;
+  color: #0f172a;
+  font-weight: 500;
+  padding: 10px;
+  }
   .db-accept-btn {
-    display: inline-flex; align-items: center; gap: 5px;
-    padding: 5px 12px; border-radius: 8px; border: none;
-    background: #d1fae5; color: #065f46;
-    font-size: 12px; font-weight: 700; cursor: pointer;
-    transition: background 0.15s;
-    white-space: nowrap;
+  background-color: #ecfdf5;
+  color: #065f46;
   }
-  .db-accept-btn:hover { background: #a7f3d0; }
+  .db-avatar-img { 
+    width: 100%; height: 100%; border-radius: 10px; object-fit: cover; 
+  }
+  .db-booking-price { 
+    font-family: 'Sora', sans-serif; font-size: 15px; font-weight: 800; color: #0f172a;display: block;margin-bottom: 8px;}
+  .db-booking-details-text { 
+    margin-top: 12px; padding: 12px 16px;; background: #f8fafc; border-radius: 12px; 
+    font-size: 12px; color: #475569; line-height: 1.5; border-left: 3px solid #e2e8f0;
+  }
+  .db-booking-details-text strong {
+  color: #0f172a;
+  text-transform: lowercase;
+  font-variant: small-caps;
+  letter-spacing: 0.5px;
+}
+  .db-accept-btn:hover {
+  background-color: #d1fae5;
+  transform: translateY(-1px);
+  }
   .db-decline-btn {
-    display: inline-flex; align-items: center; gap: 5px;
-    padding: 5px 12px; border-radius: 8px; border: none;
-    background: #fee2e2; color: #991b1b;
-    font-size: 12px; font-weight: 700; cursor: pointer;
-    transition: background 0.15s;
-    white-space: nowrap;
+    background-color: #fef2f2;
+    color: #991b1b;
   }
-  .db-decline-btn:hover { background: #fecaca; }
+  .db-decline-btn:hover {
+  background-color: #fee2e2;
+  transform: translateY(-1px);
+  }
   @keyframes spin { to { transform: rotate(360deg); } }
   /* ── Calendar ── */
   .db-cal-wrap { display: grid; grid-template-columns: 1fr 320px; gap: 20px; align-items: start; }
