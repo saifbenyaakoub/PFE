@@ -1,7 +1,7 @@
 
 import { useState, useEffect, useRef } from 'react';
-import { NavLink, Link, useNavigate } from "react-router-dom";
-import { FaHome, FaUser, FaBriefcase, FaBars, FaTimes, FaTasks, FaBroom, FaWrench, FaLeaf, FaBox, FaComments } from "react-icons/fa";
+import { NavLink, Link, useNavigate } from 'react-router-dom';
+import { FaHome, FaUser, FaBriefcase, FaBars, FaTimes, FaTasks, FaBroom, FaWrench, FaLeaf, FaBox } from 'react-icons/fa';
 import { FaScrewdriverWrench, FaGear } from "react-icons/fa6";
 import { getSession, clearSession } from "../lib/session";
 import "./navbar.css";
@@ -53,11 +53,6 @@ function Navbar() {
   const user     = session?.user;
   const name     = user?.name || user?.username || user?.email || '';
   const initials = name.trim().split(/\s+/).map(n => n[0]).join('').toUpperCase().slice(0, 2) || '?';
-
-  const API_URL = "http://localhost:5000";
-  const profileImageUrl = user?.profileImage 
-    ? `${API_URL}/uploads/${user.profileImage}` 
-    : null;
 
   const serviceCategories = [
     { name: "Cleaning", icon: <FaBroom /> },
@@ -152,17 +147,16 @@ function Navbar() {
               </div>
             </div>
           </li>
-          <li><NavLink to="/chat" onClick={closeMenu} className={({ isActive }) => isActive ? "active" : ""}><FaComments /> <span>Messages</span></NavLink></li>
         </ul>
 
         <div className="nav-auth">
           {session ? (
             <div className="nav-user-wrap" ref={dropdownRef}>
-              
+
               {/* ── Trigger ────────────────────────────────────── */}
               <button className="nav-user-trigger" onClick={toggleDropdown}>
-                {profileImageUrl ? (
-                  <img src={profileImageUrl} alt={name} className="nav-avatar-img" />
+                {user?.profileImage ? (
+                  <img src={user.profileImage} alt={name} className="nav-avatar-img" />
                 ) : (
                   <div className="nav-avatar-initials">{initials}</div>
                 )}
@@ -182,8 +176,8 @@ function Navbar() {
                 <div className="nav-dropdown">
 
                   <div className="nav-dropdown-header">
-                    {profileImageUrl ? (
-                      <img src={profileImageUrl} alt={name} className="nav-dropdown-avatar" />
+                    {user?.profileImage ? (
+                      <img src={user.profileImage} alt={name} className="nav-dropdown-avatar" />
                     ) : (
                       <div className="nav-dropdown-initials">{initials}</div>
                     )}
