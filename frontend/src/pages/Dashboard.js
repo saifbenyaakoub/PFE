@@ -53,19 +53,571 @@ const SAVED_PROVIDERS = [
   { id:3, name:"Ines Ferchichi", category:"Cleaning",   rating:4.8, jobs:56, city:"Tunis"  },
 ];
 
-const Stars = ({ n }) => Array.from({ length: 5 }, (_, i) => (
+const APPLIED_TASKS = [
+  { id:1, title:"Fix leaking pipe in bathroom",   category:"Plumbing",   budget:"120 TND", applicants:4, date:"Apr 05, 2026", status:"open",      image:null },
+  { id:2, title:"Electrical panel installation",  category:"Electrical", budget:"250 TND", applicants:2, date:"Apr 07, 2026", status:"in-progress",image:null },
+  { id:3, title:"Full apartment deep cleaning",   category:"Cleaning",   budget:"90 TND",  applicants:7, date:"Apr 08, 2026", status:"open",       image:null },
+];
+
+const TASK_STATUS_META = {
+  open:        { label:"Open",        color:"#10b981", bg:"#d1fae5" },
+  "in-progress":{ label:"In Progress",color:"#8b5cf6", bg:"#ede9fe" },
+  closed:      { label:"Closed",      color:"#6b7280", bg:"#f1f5f9" },
+};
+
+const Stars = ({ n }) => (
+  <div style={{ display: "flex", gap: 2 }}>
+    {Array.from({ length: 5 }, (_, i) => (
   <span key={i} style={{ color: i < n ? "#f59e0b" : "#e5e7eb", fontSize: 13 }}>★</span>
-));
+    ))}
+  </div>
+);
 
 const StatusBadge = ({ status }) => {
   const m = STATUS_META[status] || STATUS_META.pending;
   return <span style={{ background:m.bg, color:m.color, padding:"3px 10px", borderRadius:20, fontSize:11, fontWeight:700, whiteSpace:"nowrap" }}>{m.label}</span>;
 };
 
+
+// ── PostTaskModal ─────────────────────────────────────────────────────────────
+const TASK_CATEGORIES = [
+  "Plumbing","Electrical","Carpentry","Painting","Cleaning",
+  "Gardening","Moving","IT Support","Tutoring","Music Lessons","Other",
+];
+
+function PostTaskModal({ onClose, session }) {
+  const [form, setForm]       = useState({ title: "", description: "", category: "" });
+  const [photo, setPhoto]     = useState(null);
+  const [photoPreview, setPhotoPreview] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError]     = useState("");
+
+  const valid = form.title.trim().length > 3 && form.description.trim().length > 10;
+
+  const handlePhotoChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setPhoto(file);
+    setPhotoPreview(URL.createObjectURL(file));
+  };
+
+  const handleSubmit = async () => {
+    if (!valid) return;
+    setLoading(true);
+    setError("");
+    try {
+      const formData = new FormData();
+      formData.append("title",       form.title.trim());
+      formData.append("description", form.description.trim());
+      if (form.category) formData.append("category", form.category);
+      if (photo)         formData.append("photo", photo);
+      const res = await fetch("http://localhost:5000/tasks", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session?.token}` },
+        body: formData,
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.message || "Failed to post task");
+      }
+      setSuccess(true);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ── Overlay (fixed positioned via inline style to avoid iframe issues) ──────
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 999,
+      background: "rgba(0,0,0,0.55)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      padding: 20,
+    }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div style={{
+        background: "#fff", borderRadius: 18, width: "100%", maxWidth: 480,
+        boxShadow: "0 24px 64px rgba(0,0,0,0.18)",
+        animation: "dbFade 0.2s ease",
+        overflow: "hidden",
+      }}>
+
+        {/* Header */}
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "20px 24px 16px",
+          borderBottom: "1px solid #f1f5f9",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{
+              width: 36, height: 36, borderRadius: 10,
+              background: "#0ea5e9", color: "#fff",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+            </div>
+            <div>
+              <h2 style={{ fontFamily:"'Sora',sans-serif", fontSize:16, fontWeight:800, color:"#0a0a0a", margin:0 }}>Post a Task</h2>
+              <p style={{ fontSize:12, color:"#9ca3af", margin:0 }}>Describe what you need done</p>
+            </div>
+          </div>
+          <button onClick={onClose} style={{
+            background:"none", border:"none", cursor:"pointer",
+            color:"#9ca3af", borderRadius:8, padding:6,
+            display:"flex", alignItems:"center", justifyContent:"center",
+            transition:"background 0.15s",
+          }}
+            onMouseEnter={e => e.currentTarget.style.background="#f1f5f9"}
+            onMouseLeave={e => e.currentTarget.style.background="none"}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+
+        {/* Body */}
+        <div style={{ padding: "20px 24px" }}>
+
+          {success ? (
+            <div style={{ textAlign:"center", padding:"24px 0" }}>
+              <div style={{
+                width:56, height:56, borderRadius:"50%",
+                background:"#d1fae5", margin:"0 auto 14px",
+                display:"flex", alignItems:"center", justifyContent:"center",
+              }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              </div>
+              <h3 style={{ fontFamily:"'Sora',sans-serif", fontSize:16, fontWeight:800, color:"#0a0a0a", marginBottom:6 }}>Task Posted!</h3>
+              <p style={{ fontSize:13.5, color:"#6b7280", marginBottom:20 }}>
+                Providers will be able to see your task and reach out to you.
+              </p>
+              <button onClick={onClose} style={{
+                padding:"10px 28px", borderRadius:10, border:"none",
+                background:"#0a0a0a", color:"#fff",
+                fontFamily:"'Sora',sans-serif", fontSize:13, fontWeight:700,
+                cursor:"pointer",
+              }}>Done</button>
+            </div>
+          ) : (
+            <>
+              {/* Title */}
+              <div style={{ marginBottom:16 }}>
+                <label style={{
+                  display:"block", fontSize:11, fontWeight:700,
+                  color:"#6b7280", textTransform:"uppercase",
+                  letterSpacing:"0.06em", marginBottom:6,
+                }}>Task Title *</label>
+                <input
+                  type="text"
+                  value={form.title}
+                  placeholder="e.g. Fix leaking pipe in bathroom"
+                  onChange={e => setForm({...form, title: e.target.value})}
+                  maxLength={255}
+                  style={{
+                    width:"100%", padding:"10px 13px", borderRadius:10,
+                    border: `1.5px solid ${form.title.length > 3 ? "#d1fae5" : "#e5e7eb"}`,
+                    fontSize:13.5, fontFamily:"'DM Sans',sans-serif",
+                    outline:"none", color:"#0a0a0a",
+                    transition:"border-color 0.15s",
+                  }}
+                />
+                <p style={{ fontSize:11, color:"#9ca3af", marginTop:4 }}>
+                  {form.title.length}/255 characters
+                </p>
+              </div>
+
+              {/* Category */}
+              <div style={{ marginBottom:16 }}>
+                <label style={{
+                  display:"block", fontSize:11, fontWeight:700,
+                  color:"#6b7280", textTransform:"uppercase",
+                  letterSpacing:"0.06em", marginBottom:6,
+                }}>Category</label>
+                <select
+                  value={form.category}
+                  onChange={e => setForm({...form, category: e.target.value})}
+                  style={{
+                    width:"100%", padding:"10px 13px", borderRadius:10,
+                    border:"1.5px solid #e5e7eb", fontSize:13.5,
+                    fontFamily:"'DM Sans',sans-serif", outline:"none",
+                    color: form.category ? "#0a0a0a" : "#9ca3af",
+                    background:"#fff", cursor:"pointer",
+                  }}
+                >
+                  <option value="">Select a category (optional)</option>
+                  {TASK_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+
+              {/* Description */}
+              <div style={{ marginBottom:20 }}>
+                <label style={{
+                  display:"block", fontSize:11, fontWeight:700,
+                  color:"#6b7280", textTransform:"uppercase",
+                  letterSpacing:"0.06em", marginBottom:6,
+                }}>Description *</label>
+                <textarea
+                  value={form.description}
+                  placeholder="Describe your task in detail — location, urgency, any specific requirements..."
+                  onChange={e => setForm({...form, description: e.target.value})}
+                  rows={4}
+                  style={{
+                    width:"100%", padding:"10px 13px", borderRadius:10,
+                    border: `1.5px solid ${form.description.length > 10 ? "#d1fae5" : "#e5e7eb"}`,
+                    fontSize:13.5, fontFamily:"'DM Sans',sans-serif",
+                    outline:"none", color:"#0a0a0a", resize:"vertical",
+                    lineHeight:1.5, transition:"border-color 0.15s",
+                  }}
+                />
+                <p style={{ fontSize:11, color:"#9ca3af", marginTop:4 }}>
+                  Minimum 10 characters · {form.description.length} typed
+                </p>
+              </div>
+
+              {/* Photo */}
+              <div style={{ marginBottom:20 }}>
+                <label style={{
+                  display:"block", fontSize:11, fontWeight:700,
+                  color:"#6b7280", textTransform:"uppercase",
+                  letterSpacing:"0.06em", marginBottom:6,
+                }}>Photo <span style={{color:"#d1d5db",fontWeight:500,textTransform:"none"}}>(optional)</span></label>
+
+                {photoPreview ? (
+                  <div style={{ position:"relative", borderRadius:10, overflow:"hidden", border:"1.5px solid #d1fae5" }}>
+                    <img src={photoPreview} alt="preview" style={{ width:"100%", height:140, objectFit:"cover", display:"block" }}/>
+                    <button onClick={() => { setPhoto(null); setPhotoPreview(null); }} style={{
+                      position:"absolute", top:8, right:8,
+                      background:"rgba(0,0,0,0.55)", border:"none", borderRadius:6,
+                      color:"#fff", padding:"4px 8px", fontSize:11, fontWeight:700, cursor:"pointer",
+                    }}>✕ Remove</button>
+                  </div>
+                ) : (
+                  <label style={{
+                    display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
+                    gap:6, width:"100%", padding:"20px 13px", borderRadius:10,
+                    border:"1.5px dashed #d1d5db", background:"#f9fafb",
+                    cursor:"pointer", transition:"border-color 0.15s",
+                  }}
+                    onMouseEnter={e=>e.currentTarget.style.borderColor="#0ea5e9"}
+                    onMouseLeave={e=>e.currentTarget.style.borderColor="#d1d5db"}
+                  >
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
+                      <polyline points="21 15 16 10 5 21"/>
+                    </svg>
+                    <span style={{ fontSize:12.5, color:"#9ca3af", fontWeight:500 }}>Click to upload a photo</span>
+                    <span style={{ fontSize:11, color:"#d1d5db" }}>JPG, PNG, WEBP · max 5 MB</span>
+                    <input type="file" accept="image/*" onChange={handlePhotoChange} style={{ display:"none" }}/>
+                  </label>
+                )}
+              </div>
+
+              {/* Error */}
+              {error && (
+                <div style={{
+                  background:"#fef2f2", color:"#b91c1c",
+                  border:"1px solid #fecaca", borderRadius:10,
+                  padding:"10px 14px", fontSize:13, marginBottom:16,
+                  display:"flex", alignItems:"center", gap:8,
+                }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                  {error}
+                </div>
+              )}
+
+              {/* Footer */}
+              <div style={{ display:"flex", gap:10 }}>
+                <button onClick={onClose} style={{
+                  flex:1, padding:"11px", borderRadius:10,
+                  border:"1.5px solid #e5e7eb", background:"#fff",
+                  fontSize:13, fontWeight:600, cursor:"pointer", color:"#6b7280",
+                  fontFamily:"'DM Sans',sans-serif",
+                }}>Cancel</button>
+                <button
+                  onClick={handleSubmit}
+                  disabled={!valid || loading}
+                  style={{
+                    flex:2, padding:"11px", borderRadius:10, border:"none",
+                    background: valid ? "#0ea5e9" : "#e5e7eb",
+                    color: valid ? "#fff" : "#9ca3af",
+                    fontFamily:"'Sora',sans-serif", fontSize:13, fontWeight:700,
+                    cursor: valid ? "pointer" : "not-allowed",
+                    display:"flex", alignItems:"center", justifyContent:"center", gap:7,
+                    transition:"background 0.15s",
+                  }}
+                >
+                  {loading ? (
+                    <>
+                      <div style={{
+                        width:13, height:13, borderRadius:"50%",
+                        border:"2px solid rgba(255,255,255,0.3)",
+                        borderTopColor:"#fff",
+                        animation:"spin 0.7s linear infinite",
+                      }}/>
+                      Posting…
+                    </>
+                  ) : (
+                    <>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                      Post Task
+                    </>
+                  )}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+}
+
+// ── FixHub Assistant Chatbot ──────────────────────────────────────────────────
+function RecommendationBot({ navigate }) {
+  const [messages, setMessages] = useState([
+    { role: "assistant", content: "👋 Bonjour ! Je suis **FixHub Assistant**. Comment puis-je vous aider aujourd'hui ? Vous pouvez me poser des questions sur nos services, la réservation, ou la publication de tâches." }
+  ]);
+  const [input, setInput]   = useState("");
+  const [loading, setLoading] = useState(false);
+  const bottomRef = React.useRef(null);
+
+  React.useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, loading]);
+
+  const sendMessage = async () => {
+    const text = input.trim();
+    if (!text || loading) return;
+    const newMessages = [...messages, { role: "user", content: text }];
+    setMessages(newMessages);
+    setInput("");
+    setLoading(true);
+
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 1000,
+          system: "You are FixHub Assistant, a helpful customer support chatbot for FixHub — a platform connecting clients with home service providers (plumbing, electrical, cleaning, painting, carpentry, etc.) in Tunisia. Answer clearly and concisely in the same language the user writes in (French or English). Help users with booking services, posting tasks, understanding pricing, finding providers, and general platform questions. Keep responses friendly, short, and practical.",
+          messages: newMessages.map(m => ({ role: m.role, content: m.content })),
+        }),
+      });
+      const data = await res.json();
+      const reply = data.content?.map(b => b.text || "").join("") || "Je n'ai pas pu répondre, veuillez réessayer.";
+      setMessages(prev => [...prev, { role: "assistant", content: reply }]);
+    } catch {
+      setMessages(prev => [...prev, { role: "assistant", content: "⚠️ Erreur de connexion. Veuillez réessayer." }]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  };
+
+  // Simple markdown bold renderer
+  const renderText = (text) => {
+    const parts = text.split(/(\*\*[^*]+\*\*)/g);
+    return parts.map((p, i) =>
+      p.startsWith("**") && p.endsWith("**")
+        ? <strong key={i} style={{fontWeight:700}}>{p.slice(2,-2)}</strong>
+        : p
+    );
+  };
+
+  return (
+    <div className="db-card db-bot-card" style={{padding:0,display:"flex",flexDirection:"column",height:420}}>
+      {/* Header */}
+      <div className="db-bot-header" style={{padding:"16px 18px",borderBottom:"1px solid #f1f5f9",flexShrink:0}}>
+        <div className="db-bot-avatar" style={{background:"#0a0a0a"}}>
+          {/* Tools icon */}
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+          </svg>
+        </div>
+        <div>
+          <span className="db-bot-name">FixHub Assistant</span>
+          <span className="db-bot-status">● En ligne</span>
+        </div>
+        <button
+          style={{marginLeft:"auto",background:"none",border:"none",fontSize:11.5,color:"#9ca3af",cursor:"pointer",fontWeight:600,padding:"4px 8px",borderRadius:6,transition:"background 0.15s"}}
+          onClick={() => setMessages([{ role:"assistant", content:"👋 Bonjour ! Je suis **FixHub Assistant**. Comment puis-je vous aider aujourd'hui ?" }])}
+          onMouseEnter={e=>e.currentTarget.style.background="#f1f5f9"}
+          onMouseLeave={e=>e.currentTarget.style.background="none"}
+        >Effacer</button>
+      </div>
+
+      {/* Messages */}
+      <div style={{flex:1,overflowY:"auto",padding:"16px 18px",display:"flex",flexDirection:"column",gap:12}}>
+        {messages.map((m, i) => (
+          <div key={i} style={{display:"flex",justifyContent: m.role==="user" ? "flex-end" : "flex-start"}}>
+            {m.role === "assistant" && (
+              <div style={{width:26,height:26,borderRadius:8,background:"#0a0a0a",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginRight:8,marginTop:2}}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+                </svg>
+              </div>
+            )}
+            <div style={{
+              maxWidth:"78%",
+              background: m.role==="user" ? "#0a0a0a" : "#f0f7ff",
+              color: m.role==="user" ? "#fff" : "#1e40af",
+              borderRadius: m.role==="user" ? "12px 12px 2px 12px" : "2px 12px 12px 12px",
+              padding:"9px 13px",
+              fontSize:13,
+              lineHeight:1.55,
+              border: m.role==="user" ? "none" : "1px solid #dbeafe",
+            }}>
+              {renderText(m.content)}
+            </div>
+          </div>
+        ))}
+        {loading && (
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <div style={{width:26,height:26,borderRadius:8,background:"#0a0a0a",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+            </div>
+            <div style={{background:"#f0f7ff",border:"1px solid #dbeafe",borderRadius:"2px 12px 12px 12px",padding:"9px 13px",display:"flex",gap:4,alignItems:"center"}}>
+              {[0,1,2].map(n=>(
+                <div key={n} style={{width:6,height:6,borderRadius:"50%",background:"#93c5fd",animation:"botPulse 1.2s ease-in-out infinite",animationDelay:`${n*0.2}s`}}/>
+              ))}
+            </div>
+          </div>
+        )}
+        <div ref={bottomRef}/>
+      </div>
+
+      {/* Input */}
+      <div style={{padding:"12px 18px",borderTop:"1px solid #f1f5f9",display:"flex",gap:8,flexShrink:0}}>
+        <input
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Posez votre question…"
+          disabled={loading}
+          style={{
+            flex:1,padding:"9px 13px",borderRadius:10,
+            border:"1.5px solid #e5e7eb",fontSize:13,
+            fontFamily:"'DM Sans',sans-serif",outline:"none",
+            color:"#0a0a0a",transition:"border-color 0.15s",
+            background: loading ? "#f9fafb" : "#fff",
+          }}
+          onFocus={e=>e.target.style.borderColor="#0ea5e9"}
+          onBlur={e=>e.target.style.borderColor="#e5e7eb"}
+        />
+        <button
+          onClick={sendMessage}
+          disabled={!input.trim() || loading}
+          style={{
+            width:38,height:38,borderRadius:10,border:"none",
+            background: input.trim() && !loading ? "#0a0a0a" : "#e5e7eb",
+            color: input.trim() && !loading ? "#fff" : "#9ca3af",
+            display:"flex",alignItems:"center",justifyContent:"center",
+            cursor: input.trim() && !loading ? "pointer" : "not-allowed",
+            flexShrink:0,transition:"background 0.15s",
+          }}
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+        </button>
+      </div>
+      <style>{`@keyframes botPulse{0%,80%,100%{transform:scale(0.8);opacity:0.5}40%{transform:scale(1);opacity:1}}`}</style>
+    </div>
+  );
+}
+
+// ── RatingWidget ──────────────────────────────────────────────────────────────
+function RatingWidget({ providerId, providerName }) {
+  const [hovered,   setHovered]   = useState(0);
+  const [selected,  setSelected]  = useState(0);
+  const [feedback,  setFeedback]  = useState("");
+  const [submitted, setSubmitted] = useState(false);
+
+  const handleSubmit = () => {
+    if (!selected) return;
+    // TODO: POST /reviews { providerId, rating: selected, comment: feedback }
+    setSubmitted(true);
+  };
+
+  if (submitted) {
+    return (
+      <div className="db-rating-done">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        <span>Thanks for your review!</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="db-rating-widget">
+      <p className="db-rating-widget-label">Rate {providerName.split(" ")[0]}</p>
+
+      {/* Star selector */}
+      <div className="db-rating-stars">
+        {[1,2,3,4,5].map(n => (
+          <button
+            key={n}
+            className="db-rating-star-btn"
+            onMouseEnter={() => setHovered(n)}
+            onMouseLeave={() => setHovered(0)}
+            onClick={() => setSelected(n)}
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24"
+              fill={(hovered || selected) >= n ? "#f59e0b" : "none"}
+              stroke={(hovered || selected) >= n ? "#f59e0b" : "#d1d5db"}
+              strokeWidth="1.5"
+              style={{ transition: "all 0.1s", transform: hovered === n ? "scale(1.2)" : "scale(1)" }}
+            >
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+            </svg>
+          </button>
+        ))}
+        {selected > 0 && (
+          <span className="db-rating-label-txt">
+            {["","Poor","Fair","Good","Very good","Excellent"][selected]}
+          </span>
+        )}
+      </div>
+
+      {/* Feedback textarea */}
+      <textarea
+        className="db-rating-textarea"
+        placeholder="Share your experience (optional)..."
+        value={feedback}
+        onChange={e => setFeedback(e.target.value)}
+        rows={2}
+      />
+
+      <button
+        className="db-rating-submit"
+        onClick={handleSubmit}
+        disabled={!selected}
+      >
+        Submit Review
+      </button>
+    </div>
+  );
+}
+
 // ── Client Dashboard ──────────────────────────────────────────────────────────
 function ClientDashboard() {
-  const [tab, setTab]       = useState("overview");
-  const [filter, setFilter] = useState("all");
+  const [tab, setTab]           = useState("overview");
+  const [filter, setFilter]     = useState("all");
+  const [showTaskModal, setShowTaskModal] = useState(false);
   const navigate            = useNavigate();
   const session             = getSession();
   const user                = session?.user;
@@ -80,21 +632,20 @@ function ClientDashboard() {
   const totalSpent     = MY_BOOKINGS.filter(b => b.status === "completed").reduce((s,b) => s+b.amount, 0);
   const completedCount = MY_BOOKINGS.filter(b => b.status === "completed").length;
   const activeCount    = MY_BOOKINGS.filter(b => ["confirmed","pending","in-progress"].includes(b.status)).length;
-  const ratedBookings  = MY_BOOKINGS.filter(b => b.rating);
-  const avgRating      = ratedBookings.length ? (ratedBookings.reduce((s,b) => s+b.rating,0) / ratedBookings.length).toFixed(1) : "—";
+  const postedTasksCount = 3; // placeholder — replace with real API data
 
   const filteredBookings = filter === "all" ? MY_BOOKINGS : MY_BOOKINGS.filter(b => b.status === filter);
 
   const TABS = [
-    { id:"overview", label:"Overview",       icon:Icon.grid     },
-    { id:"bookings", label:"My Bookings",    icon:Icon.calendar },
-    { id:"saved",    label:"Saved Providers",icon:Icon.heart    },
-    { id:"reviews",  label:"My Reviews",     icon:Icon.star     },
+    { id:"overview", label:"Overview",    icon:Icon.grid  },
+    { id:"saved",    label:"My Tasks",    icon:Icon.plus  },
   ];
 
   return (
     <div className="db-shell">
       <style>{STYLES}</style>
+
+      {showTaskModal && <PostTaskModal onClose={() => setShowTaskModal(false)} session={session} />}
 
       <aside className="db-sidebar">
         <div className="db-brand">{Icon.wrench} FixHub</div>
@@ -108,8 +659,8 @@ function ClientDashboard() {
 
         <div className="db-quick-actions">
           <p className="db-quick-label">Quick Actions</p>
-          <button className="db-quick-btn" onClick={() => navigate("/services")}>{Icon.search} Find a Service</button>
-          <button className="db-quick-btn" onClick={() => navigate("/tasks")}>{Icon.plus} Post a Task</button>
+          <button className="db-quick-btn" onClick={() => navigate("/services")}>{Icon.search} Book a Service</button>
+          <button className="db-quick-btn" onClick={() => setShowTaskModal(true)}>{Icon.plus} Post a Task</button>
         </div>
 
         <div className="db-sidebar-footer">
@@ -130,7 +681,7 @@ function ClientDashboard() {
             <h1 className="db-page-title">{TABS.find(t=>t.id===tab)?.label}</h1>
             <p className="db-page-sub">{new Date().toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</p>
           </div>
-          <button className="db-cta db-cta--blue" onClick={() => navigate("/services")}>{Icon.search} Find a Service</button>
+          <button className="db-cta" onClick={() => setShowTaskModal(true)}>{Icon.plus} Post a Task</button>
         </div>
 
         {/* OVERVIEW */}
@@ -141,7 +692,7 @@ function ClientDashboard() {
                 { label:"Total Spent",       value:`${totalSpent} TND`, icon:Icon.check,    accent:"#0ea5e9" },
                 { label:"Completed Jobs",    value:completedCount,      icon:Icon.calendar, accent:"#10b981" },
                 { label:"Active Bookings",   value:activeCount,         icon:Icon.clock,    accent:"#8b5cf6" },
-                { label:"Avg Rating Given",  value:avgRating,           icon:Icon.star,     accent:"#f59e0b" },
+                { label:"Posted Tasks",      value:postedTasksCount,    icon:Icon.plus,     accent:"#f59e0b" },
               ].map((k,i) => (
                 <div className="db-kpi" key={i} style={{"--accent":k.accent}}>
                   <div className="db-kpi-icon">{k.icon}</div>
@@ -154,112 +705,49 @@ function ClientDashboard() {
             </div>
 
             <div className="db-two-col">
-              <div className="db-card">
-                <div className="db-card-head">
-                  <h3>Upcoming Bookings</h3>
-                  <button className="db-link" onClick={() => setTab("bookings")}>View all {Icon.arrow}</button>
-                </div>
-                {MY_BOOKINGS.filter(b => ["confirmed","pending","in-progress"].includes(b.status)).map(b => (
-                  <div className="db-booking-row" key={b.id}>
-                    <div className="db-booking-avatar">{b.provider.split(" ").map(n=>n[0]).join("").slice(0,2)}</div>
-                    <div className="db-booking-info">
-                      <span className="db-booking-client">{b.provider}</span>
-                      <span className="db-booking-meta">{Icon.clock} {b.date} · {b.time}</span>
-                      <span className="db-booking-service">{b.service}</span>
-                    </div>
-                    <div className="db-booking-right">
-                      <StatusBadge status={b.status}/>
-                      <span className="db-booking-amount">{b.amount} TND</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <RecommendationBot navigate={navigate} />
 
               <div className="db-card">
                 <div className="db-card-head">
-                  <h3>Saved Providers</h3>
-                  <button className="db-link" onClick={() => setTab("saved")}>View all {Icon.arrow}</button>
+                  <h3>Applied Tasks</h3>
+                  <span style={{fontSize:12,color:"#9ca3af",fontWeight:600}}>{APPLIED_TASKS.length} tasks</span>
                 </div>
-                {SAVED_PROVIDERS.map(p => (
-                  <div className="db-service-row" key={p.id}>
-                    <div className="db-provider-avatar">{p.name.split(" ").map(n=>n[0]).join("").slice(0,2)}</div>
-                    <div className="db-service-info">
-                      <span className="db-service-name">{p.name}</span>
-                      <span className="db-service-meta">{p.category} · {p.city}</span>
-                    </div>
-                    <span style={{fontWeight:700,color:"#f59e0b",fontSize:13}}>★ {p.rating}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="db-card" style={{marginTop:24}}>
-              <div className="db-card-head">
-                <h3>Recently Completed</h3>
-                <button className="db-link" onClick={() => setTab("bookings")}>View all {Icon.arrow}</button>
-              </div>
-              <div className="db-reviews-row">
-                {MY_BOOKINGS.filter(b=>b.status==="completed").slice(0,3).map(b => (
-                  <div className="db-review-card" key={b.id}>
-                    <div className="db-review-top">
-                      <div className="db-review-avatar">{b.provider.split(" ").map(n=>n[0]).join("").slice(0,2)}</div>
-                      <div>
-                        <div className="db-review-client">{b.provider}</div>
-                        <span className="db-review-tag">{b.service}</span>
-                      </div>
-                      <span className="db-review-date">{b.date}</span>
-                    </div>
-                    <div style={{marginTop:10,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                      <span style={{fontWeight:700,fontSize:14}}>{b.amount} TND</span>
-                      {b.rating ? <Stars n={b.rating}/> : <button className="db-rate-btn">{Icon.star} Rate</button>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* MY BOOKINGS */}
-        {tab === "bookings" && (
-          <div className="db-fade">
-            <div className="db-filter-bar">
-              {["all","pending","confirmed","in-progress","completed","cancelled"].map(f => (
-                <button key={f} className={`db-filter-btn ${filter===f?"db-filter-btn--active":""}`} onClick={() => setFilter(f)}>
-                  {f==="all"?"All":STATUS_META[f]?.label}
-                  <span className="db-filter-count">{f==="all"?MY_BOOKINGS.length:MY_BOOKINGS.filter(b=>b.status===f).length}</span>
-                </button>
-              ))}
-            </div>
-            <div className="db-card" style={{padding:0,overflow:"hidden"}}>
-              <table className="db-table">
-                <thead><tr><th>Provider</th><th>Service</th><th>Date & Time</th><th>City</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead>
-                <tbody>
-                  {filteredBookings.map(b => (
-                    <tr key={b.id}>
-                      <td><div className="db-table-client"><div className="db-table-avatar">{b.provider.split(" ").map(n=>n[0]).join("").slice(0,2)}</div>{b.provider}</div></td>
-                      <td className="db-table-service">{b.service}</td>
-                      <td><div className="db-table-date">{b.date}</div><div className="db-table-time">{b.time}</div></td>
-                      <td><span className="db-table-city">{Icon.map} {b.city}</span></td>
-                      <td className="db-table-amount">{b.amount} TND</td>
-                      <td><StatusBadge status={b.status}/></td>
-                      <td>
-                        <div className="db-table-actions">
-                          <button className="db-icon-btn" title="View">{Icon.eye}</button>
-                          <button className="db-icon-btn" title="Message">{Icon.msg}</button>
-                          {b.status==="completed"&&!b.rating&&<button className="db-icon-btn" title="Rate" style={{background:"#fef3c7",color:"#b45309"}}>{Icon.star}</button>}
-                          {b.status==="completed"&&<button className="db-icon-btn" title="Book again">{Icon.repeat}</button>}
+                <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                  {APPLIED_TASKS.map(task => {
+                    const tm = TASK_STATUS_META[task.status] || TASK_STATUS_META.open;
+                    return (
+                      <div key={task.id} style={{
+                        border:"1px solid #f1f5f9",borderRadius:12,overflow:"hidden",
+                        background:"#fafbfc",transition:"box-shadow 0.2s",cursor:"pointer",
+                      }}
+                        onMouseEnter={e=>e.currentTarget.style.boxShadow="0 4px 16px rgba(0,0,0,.08)"}
+                        onMouseLeave={e=>e.currentTarget.style.boxShadow="none"}
+                      >
+                        {task.image && (
+                          <img src={task.image} alt={task.title} style={{width:"100%",height:80,objectFit:"cover"}}/>
+                        )}
+                        <div style={{padding:"12px 14px"}}>
+                          <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:8,marginBottom:6}}>
+                            <span style={{fontSize:13,fontWeight:700,color:"#0a0a0a",lineHeight:1.3,flex:1}}>{task.title}</span>
+                            <span style={{background:tm.bg,color:tm.color,padding:"2px 8px",borderRadius:20,fontSize:10.5,fontWeight:700,whiteSpace:"nowrap",flexShrink:0}}>{tm.label}</span>
+                          </div>
+                          <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                            <span style={{background:"#f1f5f9",color:"#475569",padding:"2px 8px",borderRadius:20,fontSize:11,fontWeight:600}}>{task.category}</span>
+                            <span style={{fontSize:11.5,color:"#6b7280",display:"flex",alignItems:"center",gap:3}}>{Icon.clock} {task.date}</span>
+                            <span style={{fontSize:11.5,color:"#10b981",fontWeight:700,marginLeft:"auto"}}>{task.budget}</span>
+                          </div>
+                          <div style={{marginTop:8,fontSize:11.5,color:"#9ca3af"}}>
+                            <span style={{fontWeight:600,color:"#6b7280"}}>{task.applicants}</span> providers applied
+                          </div>
                         </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {filteredBookings.length===0&&<div className="db-empty">No bookings for this filter.</div>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           </div>
         )}
-
         {/* SAVED PROVIDERS */}
         {tab === "saved" && (
           <div className="db-fade">
@@ -281,44 +769,14 @@ function ClientDashboard() {
                     <div className="db-svc-stat"><span>{p.jobs}</span><label>Jobs Done</label></div>
                     <div className="db-svc-stat"><span>{p.city}</span><label>City</label></div>
                   </div>
-                  <div className="db-svc-actions">
-                    <button className="db-svc-btn">{Icon.eye} View Profile</button>
-                    <button className="db-svc-btn db-svc-btn--primary">{Icon.plus} Book Now</button>
-                  </div>
+                  <RatingWidget providerId={p.id} providerName={p.name} />
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* MY REVIEWS */}
-        {tab === "reviews" && (
-          <div className="db-fade">
-            <div className="db-reviews-list">
-              {MY_BOOKINGS.filter(b=>b.status==="completed").map(b => (
-                <div className="db-review-full" key={b.id}>
-                  <div className="db-review-full-top">
-                    <div className="db-review-avatar db-review-avatar--lg">{b.provider.split(" ").map(n=>n[0]).join("").slice(0,2)}</div>
-                    <div className="db-review-full-info">
-                      <span className="db-review-client">{b.provider}</span>
-                      <span className="db-review-tag">{b.service}</span>
-                    </div>
-                    <div style={{marginLeft:"auto",textAlign:"right"}}>
-                      <div className="db-table-date">{b.date}</div>
-                      <div style={{fontWeight:700,marginTop:2}}>{b.amount} TND</div>
-                    </div>
-                  </div>
-                  <div style={{marginTop:14}}>
-                    {b.rating
-                      ? <div style={{display:"flex",alignItems:"center",gap:10}}><Stars n={b.rating}/><span style={{fontSize:12,color:"#9ca3af"}}>Your rating</span></div>
-                      : <button className="db-rate-btn db-rate-btn--full">{Icon.star} Leave a Review</button>
-                    }
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+
       </main>
     </div>
   );
@@ -438,4 +896,31 @@ const STYLES = `
   @media(max-width:1100px){.db-kpi-grid{grid-template-columns:repeat(2,1fr)}.db-two-col{grid-template-columns:1fr}.db-reviews-row{grid-template-columns:1fr 1fr}}
   @media(max-width:768px){.db-sidebar{display:none}.db-main{padding:20px 16px}.db-kpi-grid{grid-template-columns:1fr 1fr}.db-reviews-row{grid-template-columns:1fr}}
   @media(max-width:480px){.db-kpi-grid{grid-template-columns:1fr}}
+  /* ── RecommendationBot ── */
+  .db-bot-card { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+  .db-bot-header { display: flex; align-items: center; gap: 10px; }
+  .db-bot-avatar { width: 34px; height: 34px; border-radius: 10px; background: linear-gradient(135deg, #0ea5e9, #0284c7); color: #fff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .db-bot-name { display: block; font-size: 13px; font-weight: 700; color: #0a0a0a; font-family: 'Sora', sans-serif; }
+  .db-bot-status { display: block; font-size: 11px; color: #10b981; font-weight: 600; }
+  .db-bot-back { margin-left: auto; background: none; border: none; font-size: 12px; color: #6b7280; cursor: pointer; font-weight: 600; padding: 4px 8px; border-radius: 6px; transition: background 0.15s; }
+  .db-bot-back:hover { background: #f1f5f9; color: #0a0a0a; }
+  .db-bot-bubble { background: #f0f7ff; border-radius: 0 12px 12px 12px; padding: 12px 14px; border: 1px solid #dbeafe; }
+  .db-bot-msg { font-size: 13.5px; color: #1e40af; line-height: 1.5; }
+  .db-bot-opts { display: flex; flex-direction: column; gap: 7px; }
+  .db-bot-opt { text-align: left; padding: 9px 14px; border-radius: 10px; border: 1.5px solid #e5e7eb; background: #fff; font-size: 13px; font-weight: 500; color: #374151; cursor: pointer; transition: all 0.15s; font-family: 'DM Sans', sans-serif; }
+  .db-bot-opt:hover { border-color: #0ea5e9; color: #0284c7; background: #f0f9ff; transform: translateX(3px); }
+
+  /* ── RatingWidget ── */
+  .db-rating-widget { padding-top: 14px; border-top: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 10px; }
+  .db-rating-widget-label { font-size: 11.5px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.06em; }
+  .db-rating-stars { display: flex; align-items: center; gap: 2px; }
+  .db-rating-star-btn { background: none; border: none; cursor: pointer; padding: 2px; line-height: 0; }
+  .db-rating-label-txt { font-size: 12px; font-weight: 700; color: #f59e0b; margin-left: 6px; }
+  .db-rating-textarea { width: 100%; padding: 8px 10px; border-radius: 8px; border: 1.5px solid #e5e7eb; font-size: 13px; font-family: 'DM Sans', sans-serif; resize: none; outline: none; color: #374151; background: #fafafa; }
+  .db-rating-textarea:focus { border-color: #0ea5e9; background: #fff; }
+  .db-rating-submit { width: 100%; padding: 9px; border-radius: 9px; border: none; background: #0a0a0a; color: #fff; font-size: 13px; font-weight: 700; cursor: pointer; font-family: 'Sora', sans-serif; transition: background 0.15s, opacity 0.15s; }
+  .db-rating-submit:hover:not(:disabled) { background: #222; }
+  .db-rating-submit:disabled { opacity: 0.4; cursor: not-allowed; }
+  .db-rating-done { display: flex; align-items: center; gap: 7px; padding: 10px 0 4px; font-size: 13px; font-weight: 600; color: #10b981; }
+
 `;
