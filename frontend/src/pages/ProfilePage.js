@@ -2,8 +2,29 @@ import React, { useState, useEffect, useRef } from 'react';
 import { getProfile, updateProfile, uploadProfileImage } from '../lib/profileApi';
 import { clearSession, getSession, saveSession } from "../lib/session";
 import MultiSelect from './MultiSelect';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+
+// Fix for Leaflet default icon issues in React
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
 
 // ── Data ──────────────────────────────────────────────────────────────────────
+const cityCoords = {
+  "Tunis": [36.8065, 10.1815], "Ariana": [36.8625, 10.1956], "Ben Arous": [36.7531, 10.2222],
+  "Manouba": [36.8080, 10.0864], "Nabeul": [36.4561, 10.7335], "Zaghouan": [36.4029, 10.1429],
+  "Bizerte": [37.2744, 9.8739], "Béja": [36.7256, 9.1817], "Jendouba": [36.5011, 8.7802],
+  "Kef": [36.1822, 8.7148], "Siliana": [36.0840, 9.3708], "Kairouan": [35.6781, 10.0963],
+  "Kasserine": [35.1676, 8.8365], "Sidi Bouzid": [35.0382, 9.4849], "Sousse": [35.8256, 10.6369],
+  "Monastir": [35.7780, 10.8262], "Mahdia": [35.5047, 11.0622], "Sfax": [34.7406, 10.7603],
+  "Gafsa": [34.4250, 8.7842], "Tozeur": [33.9197, 8.1335], "Kebili": [33.7050, 8.9690],
+  "Gabès": [33.8815, 10.0982], "Medenine": [33.3549, 10.5055], "Tataouine": [32.9297, 10.4518]
+};
+
 const tunisianCities = [
   "Tunis", "Ariana", "Ben Arous", "Manouba", "Nabeul", "Zaghouan",
   "Bizerte", "Béja", "Jendouba", "Kef", "Siliana", "Kairouan",
@@ -63,13 +84,16 @@ function ProfilePage() {
   const [loading, setLoading]                 = useState(true);
   const [isProvider, setIsProvider]           = useState(false);
   const [saving, setSaving]                   = useState(false);
-  const [formData, setFormData]               = useState({ name: '', email: '', city: '', categories: [] });
+  const [formData, setFormData]               = useState({ name: '', email: '', city: '', latitude: '', longitude: '', categories: [] });
   const [profileImage, setProfileImage]       = useState(null);
   const [newProfileImage, setNewProfileImage] = useState(null);
   const [previewUrl, setPreviewUrl]           = useState(null);
   const [error, setError]                     = useState(null);
+  const [showMap, setShowMap]                 = useState(false); // New state for map modal
   const [success, setSuccess]                 = useState(false);
   const fileInputRef = useRef(null);
+  const mapContainerRef = useRef(null);
+  const mapInstanceRef = useRef(null);
 
   useEffect(() => { fetchProfile(); }, []);
 
@@ -86,9 +110,11 @@ function ProfilePage() {
       const profile = await getProfile();
       setFormData({
         name:       profile?.name       || '',
-        email:      profile?.email      || '',
-        city:       profile?.city       || '',
-        categories: profile?.categories || [],
+        email:      profile?.email      || '', 
+        city:       profile?.city       || '', 
+        latitude:   profile?.latitude   || '', 
+        longitude:  profile?.longitude  || '', 
+        categories: profile?.categories || [], 
         role:profile?.role||''
       });
       setProfileImage(profile?.profileImage || null);
@@ -123,9 +149,11 @@ function ProfilePage() {
 
       await updateProfile({
         ...formData,
-        categories:   isProvider ? formData.categories : [],
-        profileImage: updatedImageUrl
-      });
+        categories:   isProvider ? formData.categories : [], 
+        profileImage: updatedImageUrl, 
+        latitude:     formData.latitude, 
+        longitude:    formData.longitude, 
+      }); 
 
       setProfileImage(updatedImageUrl);
       setNewProfileImage(null);
@@ -144,6 +172,8 @@ function ProfilePage() {
           user: {
             ...currentSession.user,
             name:         formData.name,
+            latitude:     formData.latitude,
+            longitude:    formData.longitude,
             profileImage: filename,
           }
         });
@@ -159,6 +189,65 @@ function ProfilePage() {
   };
 
   const handleSignOut = () => { clearSession(); window.location.href = "/"; };
+
+  // ── Leaflet Initialization ────────────────────────────────────────────────
+  useEffect(() => {
+    if (showMap && mapContainerRef.current) {
+      // Use saved coordinates if available, otherwise city coords, otherwise default to Tunis
+      const initialCoords = (formData.latitude && formData.longitude)
+        ? [formData.latitude, formData.longitude]
+        : cityCoords[formData.city] || [36.8065, 10.1815];
+      
+      // Initialize map
+      const map = L.map(mapContainerRef.current).setView(initialCoords, 12);
+      mapInstanceRef.current = map;
+
+      // Add tile layer
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(map);
+
+      // Add a draggable marker
+      const marker = L.marker(initialCoords, { draggable: true }).addTo(map);
+      
+      // Initial popup content
+      const initialPopupContent = formData.city
+        ? `<b>${formData.city}</b>`
+        : `<b>Location</b><br />`;
+      marker.bindPopup(initialPopupContent).openPopup();
+
+      const updateLocation = async (lat, lng) => {
+        marker.setLatLng([lat, lng]);
+        setFormData(prev => ({ ...prev, latitude: lat, longitude: lng })); // Update lat/lng in form data
+
+        try {
+          // Reverse Geocoding using Nominatim
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+          const data = await res.json();
+          const addr = data.address; //
+          const foundCity = addr.city || addr.town || addr.village || addr.state_district;
+
+          // If the found city is in our supported list, update the form
+          if (foundCity && tunisianCities.includes(foundCity)) {
+            setFormData(prev => ({ ...prev, city: foundCity }));
+            marker.bindPopup(`<b>${foundCity}</b><br/>City Updated`).openPopup();
+          }
+        } catch (err) {
+          console.error("Geocoding error:", err);
+        }
+      };
+
+      map.on('click', (e) => updateLocation(e.latlng.lat, e.latlng.lng));
+      marker.on('dragend', (e) => updateLocation(e.target.getLatLng().lat, e.target.getLatLng().lng));
+    }
+
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    }; 
+  }, [showMap]); // Depend only on showMap to avoid re-initializing while interacting 
 
   // ── Loading state ─────────────────────────────────────────────────────────
   if (loading) {
@@ -276,6 +365,12 @@ function ProfilePage() {
                     <option value="">Select your city</option>
                     {tunisianCities.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
+                  {formData.city && (
+                    <button type="button" className="show-map-btn" onClick={() => setShowMap(true)}>
+                      <MapPinIcon />
+                      Show on Map
+                    </button>
+                  )}
                 </div>
 
                 {isProvider && (
@@ -304,6 +399,21 @@ function ProfilePage() {
           </div>
         </div>
       </div>
+
+      {/* Map Modal */}
+      {showMap && (
+        <div className="map-modal-overlay" onClick={() => setShowMap(false)}>
+          <div className="map-modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="map-modal-header">
+              <h3>Map of {formData.city}</h3>
+              <button className="map-modal-close-btn" onClick={() => setShowMap(false)}>
+                &times;
+              </button>
+            </div>
+            <div ref={mapContainerRef} className="map-placeholder" style={{ zIndex: 1 }} />
+          </div>
+        </div>
+      )}
     </>
   );
 }
@@ -529,6 +639,48 @@ const STYLES = `
   .save-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
   /* Spinners */
+  .show-map-btn {
+    display: inline-flex; 
+    align-items: center; 
+    gap: 6px;
+    padding: 6px 12px; 
+    border-radius: 8px;
+    font-family: 'Sora', sans-serif;
+    font-size: 11px; 
+    font-weight: 600;
+    background: #f9fafb; 
+    color: ${BRAND};
+    border: 1.5px solid #e5e7eb;
+    cursor: pointer;
+    margin-top: 8px;
+    width: fit-content;
+    transition: all 0.2s;
+  }
+  .show-map-btn:hover {
+    background: ${BRAND_LIGHT};
+    border-color: #d1d5db;
+  }
+
+  .map-modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 20px;
+  }
+
+  .map-modal-content {
+    background: #fff;
+    border-radius: 16px;
+    padding: 25px;
+    width: 100%;
+    max-width: 700px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    position: relative;
+  }
   .spinner {
     width: 30px; height: 30px; border-radius: 50%;
     border: 2.5px solid #e5e7eb; border-top-color: ${BRAND};
@@ -540,6 +692,30 @@ const STYLES = `
     animation: spin 0.7s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
+
+  .map-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+
+  .map-modal-header h3 {
+    font-family: 'Sora', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    color: #0a0a0a;
+    margin: 0;
+  }
+
+  .map-modal-close-btn {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #6b7280;
+  }
+
 
   .page-footnote {
     margin-top: 18px; font-size: 11px; color: #b0b8c1;
@@ -567,6 +743,18 @@ const STYLES = `
     .save-btn       { width: 100%; justify-content: center; padding: 12px; }
   }
 
+  .map-placeholder {
+    width: 100%;
+    height: 400px; /* Placeholder height for the map */
+    background: #e0e0e0;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #6b7280;
+    font-style: italic;
+  }
+
   /* ── Mobile  ≤ 430px ─────────────────────────── */
   @media (max-width: 430px) {
     .profile-shell  { padding: 0 0 40px; }
@@ -585,6 +773,7 @@ const STYLES = `
     .field-input    { padding: 9px 12px; font-size: 13px; }
     .save-btn       { font-size: 12.5px; }
     .page-footnote  { padding: 0 16px; }
+    .show-map-btn   { font-size: 9.5px; padding: 2px 8px; }
   }
 
   /* ── Small phones  ≤ 360px ───────────────────── */
@@ -600,6 +789,7 @@ const STYLES = `
     .field-label    { font-size: 9.5px; }
     .field-input    { padding: 8px 11px; font-size: 12.5px; border-radius: 10px; }
     .save-btn       { padding: 10px; font-size: 12px; border-radius: 10px; }
+    .show-map-btn   { font-size: 9.5px; padding: 2px 8px; }
   }
 `;
 

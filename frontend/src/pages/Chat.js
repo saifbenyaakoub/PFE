@@ -86,20 +86,34 @@ export default function Chat() {
       if (currentChatRef.current?.id === conversationId) setIsTyping(false);
     });
 
-    s.on("quotationUpdated", ({ messageId, status, content }) => {
-      setMessages(prev => prev.map(m => {
-        if (String(m.id) === String(messageId)) {
-          try {
-            let parsed = JSON.parse(m.content);
-            if (content) parsed = JSON.parse(content);
-            if (status) parsed.status = status;
-            return { ...m, content: JSON.stringify(parsed) };
-          } catch (e) { return m; }
+    s.on("quotationUpdated", ({ messageId, status, content, conversationId }) => {
+    // Only update messages in the current chat
+    if (currentChatRef.current?.id !== conversationId) return;
+
+    setMessages(prev => {
+      return prev.map(m => {
+        if (String(m.id) === String(messageId) || String(m.id).startsWith("temp-")) {
+          // Replace entirely with server content
+          if (content) {
+            return { ...m, content };
+          } else {
+            // fallback if content not sent
+            try {
+              const parsed = JSON.parse(m.content);
+              parsed.status = status;
+              return { ...m, content: JSON.stringify(parsed) };
+            } catch (e) {
+              return m;
+            }
+          }
         }
         return m;
-      }));
-      fetchConversations();
+      });
     });
+
+    fetchConversations();
+  });
+
 
     setSocket(s);
     return () => s.disconnect();
@@ -182,7 +196,7 @@ export default function Chat() {
     socket.emit("stopTyping", currentChat.id);
   };
 
-  const handleSendQuotation = (e) => {
+  const handleSendQuotation = async (e) => {
     e.preventDefault();
     if (!quotation.description || !quotation.amount || !currentChat || !socket) return;
 
@@ -194,11 +208,18 @@ export default function Chat() {
     });
 
     if (editingMessageId) {
-      // Optimistic update for edit
+      const res = await fetch(`${ENDPOINT}/chat/quotation/respond`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messageId:editingMessageId,content: content }),
+    });
+
+    if (!res.ok) throw new Error("Failed to respond to quotation");
+
+    const updatedMessage = await res.json(); 
       setMessages(prev => prev.map(m => 
         String(m.id) === String(editingMessageId) ? { ...m, content } : m
       ));
-
       socket.emit("updateQuotation", {
         messageId: editingMessageId,
         content,
@@ -227,25 +248,40 @@ export default function Chat() {
     setShowQuotationModal(false);
   };
 
-  const handleQuotationResponse = (messageId, status) => {
-    // Optimistic local update for immediate feedback
-    setMessages(prev => prev.map(m => {
-      if (String(m.id) === String(messageId)) {
-        try {
-          const content = JSON.parse(m.content);
-          content.status = status;
-          return { ...m, content: JSON.stringify(content) };
-        } catch (e) { return m; }
-      }
-      return m;
-    }));
+const handleQuotationResponse = async (messageId, status) => {
+  try {
 
-    socket.emit("respondToQuotation", {
-      messageId,
-      status,
-      conversationId: currentChat.id
+const filteredMsg = messages.find(m => String(m.id) === String(messageId));
+    
+
+    const content={...JSON.parse(filteredMsg.content), status: status}
+    
+    
+    const res = await fetch(`${ENDPOINT}/chat/quotation/respond`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messageId, status,content: JSON.stringify(content) }),
     });
-  };
+
+    if (!res.ok) throw new Error("Failed to respond to quotation");
+
+    const updatedMessage = await res.json(); // Server returns full updated message
+
+    setMessages(prev => prev.map(m => m.id === updatedMessage.id ? updatedMessage : m));
+
+    // Emit to other clients
+    socket.emit("quotationUpdated", {
+      messageId: updatedMessage.id,
+      content: updatedMessage.content,
+      status: updatedMessage.status,
+      conversationId: updatedMessage.conversation_id
+    });
+
+    fetchConversations();
+  } catch (err) {
+    console.error(err);
+  }
+};
 
   const generateInvoicePDF = (data, msg) => {
     const doc = new jsPDF();
@@ -282,13 +318,13 @@ export default function Chat() {
     // Bill Parties
     doc.setTextColor(15, 23, 42);
     doc.setFont("helvetica", "bold");
-    doc.text("BILL FROM", 20, 60);
+    doc.text("De ", 20, 60);
     doc.setFont("helvetica", "normal");
     const providerName = session.user?.role === 'provider' ? session.user.name : currentChat?.other_user_name;
     doc.text(providerName || "Service Provider", 20, 66);
 
     doc.setFont("helvetica", "bold");
-    doc.text("BILL TO", 20, 80);
+    doc.text("Pour ", 20, 80);
     doc.setFont("helvetica", "normal");
     const clientName = session.user?.role === 'client' ? session.user.name : currentChat?.other_user_name;
     doc.text(clientName || "Valued Client", 20, 86);
@@ -296,7 +332,7 @@ export default function Chat() {
     // Table
     autoTable(doc, {
       startY: 95,
-      head: [['Service Description', 'Total Amount']],
+      head: [[' Description Service ', 'Total']],
       body: [[data.description, `${data.amount} TND`]],
       headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: 'bold' },
       bodyStyles: { textColor: [30, 41, 59] },
@@ -310,14 +346,15 @@ export default function Chat() {
     // Summary & Signature
     doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
-    doc.text(`Total Paid: ${data.amount} TND`, 190, finalY + 20, { align: "right" });
+    doc.text(`Total : ${data.amount} TND`, 190, finalY + 20, { align: "right" });
 
     const sigY = finalY + 50;
     doc.setDrawColor(203, 213, 225);
     doc.line(130, sigY, 190, sigY);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
-    doc.text("Signature de Prestateur de Service", 120, sigY + 7, { align: "center" });
+    doc.line(30, sigY, 100, sigY);
+    doc.text("Signature de Prestateur de Service", 65, sigY + 7, { align: "center" });
     doc.text("Signature de Client", 160, sigY + 7, { align: "center" });
     // Bottom Footer
     doc.setFontSize(9);
@@ -330,6 +367,7 @@ export default function Chat() {
   const renderMessageContent = (msg) => {
     try {
       const data = JSON.parse(msg.content);
+  
       if (data.type === "quotation") {
         // Use String() to prevent type mismatch (string vs number)
         const isOwn = String(msg.sender_id) === String(session.user?.id);
@@ -337,48 +375,65 @@ export default function Chat() {
 
         return (
           <div className={`quotation-card status-${data.status}`}>
-            <div className="quotation-badge">QUOTATION</div>
-            <p>{data.description}</p>
-            <div className="quotation-amount">{data.amount} TND</div>
-            
-            {/* Show actions only if received by a client and still pending */}
-            {data.status === "pending" && !isOwn && isClient && (
-              <div className="quotation-actions">
-                <button 
-                  onClick={() => handleQuotationResponse(msg.id, 'accepted')} 
-                  className="btn-accept"
-                >
-                  <FaCheck /> Accept
-                </button>
-                <button 
-                  onClick={() => handleQuotationResponse(msg.id, 'declined')} 
-                  className="btn-decline"
-                >
-                  <FaTimes /> Decline
-                </button>
+            <div className="quotation-card-inner">
+              {/* Header row: badge + status pill */}
+              <div className="quotation-header-row">
+                <div className="quotation-badge">
+                  <FaFileInvoiceDollar size={9} /> Quotation
+                </div>
+                {data.status !== "pending" && (
+                  <div className="quotation-status-label">
+                    {data.status === "accepted" ? <FaCheck size={8} /> : <FaTimes size={8} />}
+                    {data.status.toUpperCase()}
+                  </div>
+                )}
               </div>
-            )}
-            {data.status !== "pending" && <div className="quotation-status-label">{data.status.toUpperCase()}</div>}
 
-            {/* Provider can update a declined quotation */}
-            {data.status === "declined" && isOwn && (
-              <button 
-                onClick={() => {
-                  setQuotation({ description: data.description, amount: data.amount });
-                  setEditingMessageId(msg.id);
-                  setShowQuotationModal(true);
-                }} 
-                className="btn-update-quotation"
-              >
-                <FaEdit /> Update Quotation
-              </button>
-            )}
+              {/* Description */}
+              <p className="quotation-description">{data.description}</p>
 
-            {data.status === "accepted" && (
-              <button onClick={() => generateInvoicePDF(data, msg)} className="btn-download-pdf">
-                <FaFilePdf /> Download Invoice
-              </button>
-            )}
+              <div className="quotation-divider" />
+
+              {/* Amount */}
+              <div className="quotation-amount-row">
+                <span className="quotation-amount-label">Total</span>
+                <span className="quotation-amount">{data.amount}</span>
+                <span className="quotation-currency">TND</span>
+              </div>
+
+              {/* Accept / Decline — only for client receiving a pending quotation */}
+              {data.status === "pending" && !isOwn && isClient && (
+                <div className="quotation-actions">
+                  <button onClick={() => handleQuotationResponse(msg.id, 'accepted')} className="btn-accept">
+                    <FaCheck size={11} /> Accept
+                  </button>
+                  <button onClick={() => handleQuotationResponse(msg.id, 'declined')} className="btn-decline">
+                    <FaTimes size={11} /> Decline
+                  </button>
+                </div>
+              )}
+
+              {/* Provider can update a declined quotation */}
+              {data.status === "declined" && isOwn && (
+                <button
+                  onClick={() => {
+                    setQuotation({ description: data.description, amount: data.amount });
+                    setEditingMessageId(msg.id);
+                    setShowQuotationModal(true);
+                  }}
+                  className="btn-update-quotation"
+                >
+                  <FaEdit size={11} /> Update Quotation
+                </button>
+              )}
+
+              {/* Download invoice when accepted */}
+              {data.status === "accepted" && (
+                <button onClick={() => generateInvoicePDF(data, msg)} className="btn-download-pdf">
+                  <FaFilePdf size={12} /> Download Invoice
+                </button>
+              )}
+            </div>
           </div>
         );
       }
@@ -387,6 +442,20 @@ export default function Chat() {
   };
 
   if (!session) return <div className="chat-container">Please sign in.</div>;
+
+  function getLastMessage (lastMessage) {
+
+    let message = lastMessage;
+    try {
+      const parsed = JSON.parse(lastMessage);
+      if (parsed.type === "quotation") {
+        message = `Quotation: ${parsed.description} - ${parsed.amount} TND (${parsed.status})`;
+      }
+      return message;
+    } catch (e) { return lastMessage}
+
+ 
+  }
 
   return (
     <div className="chat-container">
@@ -404,7 +473,7 @@ export default function Chat() {
               </div>
               <div className="conversation-info">
                 <h4>{chat.other_user_name}</h4>
-                <p>{chat.last_message || "No messages yet"}</p>
+                <p>{getLastMessage(chat.last_message) || "No messages yet"}</p>
               </div>
             </div>
           ))}
@@ -433,17 +502,42 @@ export default function Chat() {
                 </button>
               )}
             </div>
-            <div className="messages-area">
-              {messages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={`message-bubble ${String(msg.sender_id) === String(session.user?.id) ? "sent" : "received"}`}
-                >
-                  {renderMessageContent(msg)}
-                </div>
-              ))}
+            <div className="messages-area" style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              {messages.map((msg) => {
+                const isQuotation = (() => {
+                  try { return JSON.parse(msg.content).type === "quotation"; } catch(e) { return false; }
+                })();
+
+                if (isQuotation) {
+                  return (
+                    <div key={msg.id} className="quotation-msg-wrapper">
+                      {renderMessageContent(msg)}
+                      <span className="quotation-msg-time">
+                        {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div
+                    key={msg.id}
+                    className={`message-bubble ${String(msg.sender_id) === String(session.user?.id) ? "sent" : "received"}`}
+                    style={{
+                      alignSelf: String(msg.sender_id) === String(session.user?.id) ? "flex-end" : "flex-start",
+                      maxWidth: "75%",
+                      wordBreak: "break-word"
+                    }}
+                  >
+                    {renderMessageContent(msg)}
+                    <div className="message-time">
+                      {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                  </div>
+                );
+              })}
               {isTyping && (
-                <div className="message-bubble received typing-indicator">
+                <div className="message-bubble received typing-indicator" style={{ alignSelf: "flex-start" }}>
                   <span></span><span></span><span></span>
                 </div>
               )}

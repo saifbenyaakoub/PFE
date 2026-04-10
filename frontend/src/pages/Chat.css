@@ -308,42 +308,186 @@ display: none !important;
     transform: translateY(-1px);
 }
 
+/* ── Quotation wrapper ── */
+.quotation-msg-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    margin: 8px 0;
+}
+
+.quotation-msg-time {
+    font-size: 10px;
+    color: #94a3b8;
+    margin-top: 6px;
+}
+
+/* ── The card ── */
 .quotation-card {
-    background: white;
-    border-radius: 12px;
-    padding: 16px;
-    min-width: 260px;
-    border-left: 4px solid #3b82f6;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    position: relative;
+    width: 100%;
+    max-width: 340px;
+    background: #ffffff;
+    border-radius: 20px;
+    padding: 0;
+    overflow: hidden;
+    box-shadow:
+        0 1px 2px rgba(0,0,0,0.04),
+        0 6px 24px rgba(0,0,0,0.08),
+        0 0 0 1px rgba(0,0,0,0.05);
+    animation: cardPop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) both;
     color: #1e293b;
 }
 
+@keyframes cardPop {
+    from { opacity: 0; transform: scale(0.92) translateY(8px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* ── Top accent strip ── */
+.quotation-card::before {
+    content: "";
+    display: block;
+    height: 4px;
+    background: linear-gradient(90deg, #6366f1, #3b82f6, #06b6d4, #6366f1);
+    background-size: 200% 100%;
+    animation: shimmer 3s linear infinite;
+}
+
+.quotation-card.status-accepted::before {
+    background: linear-gradient(90deg, #059669, #10b981, #34d399, #059669);
+    background-size: 200% 100%;
+}
+
+.quotation-card.status-declined::before {
+    background: linear-gradient(90deg, #dc2626, #ef4444, #f87171, #dc2626);
+    background-size: 200% 100%;
+    animation: none;
+}
+
+@keyframes shimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* ── Card inner content ── */
+.quotation-card-inner {
+    padding: 20px 22px 22px;
+}
+
+/* ── Header row ── */
+.quotation-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+}
+
 .quotation-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
     font-size: 10px;
     font-weight: 800;
+    color: #6366f1;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    background: #eef2ff;
+    padding: 3px 9px;
+    border-radius: 20px;
+}
+
+.quotation-card.status-accepted .quotation-badge {
+    color: #059669;
+    background: #d1fae5;
+}
+
+.quotation-card.status-declined .quotation-badge {
+    color: #dc2626;
+    background: #fee2e2;
+}
+
+/* ── Status pill ── */
+.quotation-status-label {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: 20px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.status-accepted .quotation-status-label {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.status-declined .quotation-status-label {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+/* ── Description ── */
+.quotation-description {
+    font-size: 13.5px;
+    color: #475569;
+    line-height: 1.55;
+    margin-bottom: 16px;
+}
+
+/* ── Divider ── */
+.quotation-divider {
+    height: 1px;
+    background: linear-gradient(90deg, #e2e8f0 0%, transparent 100%);
+    margin-bottom: 16px;
+}
+
+/* ── Amount row ── */
+.quotation-amount-row {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin-bottom: 18px;
+}
+
+.quotation-amount-label {
+    font-size: 11px;
+    font-weight: 600;
     color: #94a3b8;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
-    margin-bottom: 10px;
+    letter-spacing: 0.08em;
+    margin-right: auto;
 }
 
 .quotation-amount {
-    font-size: 22px;
+    font-size: 28px;
     font-weight: 800;
     color: #0f172a;
-    margin: 12px 0;
+    line-height: 1;
+    letter-spacing: -0.03em;
 }
 
+.quotation-currency {
+    font-size: 14px;
+    font-weight: 700;
+    color: #64748b;
+}
+
+/* ── Action buttons ── */
 .quotation-actions {
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     gap: 8px;
-    margin-top: 15px;
+    margin-top: 4px;
 }
 
 .quotation-actions button {
-    flex: 1;
-    padding: 10px;
-    border-radius: 8px;
+    padding: 11px 8px;
+    border-radius: 12px;
     font-size: 13px;
     font-weight: 700;
     cursor: pointer;
@@ -351,38 +495,66 @@ display: none !important;
     align-items: center;
     justify-content: center;
     gap: 6px;
-    transition: all 0.2s;
+    transition: all 0.18s ease;
     border: none;
+    letter-spacing: 0.01em;
 }
 
-.btn-accept { background: #10b981; color: white; }
-.btn-accept:hover { background: #059669; }
-
-.btn-decline { background: #f1f5f9; color: #ef4444; }
-.btn-decline:hover { background: #fee2e2; }
-
-.quotation-status-label {
-    font-size: 11px;
-    font-weight: 800;
-    margin-top: 12px;
-    padding: 4px 10px;
-    border-radius: 6px;
-    display: inline-block;
+.btn-accept {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.35);
 }
 
-.status-accepted { border-left-color: #10b981; }
-.status-declined { border-left-color: #ef4444; }
-.status-accepted .quotation-status-label { background: #d1fae5; color: #065f46; }
-.status-declined .quotation-status-label { background: #fee2e2; color: #991b1b; }
+.btn-accept:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.45);
+}
 
-.btn-download-pdf {
+.btn-decline {
+    background: #f8fafc;
+    color: #ef4444;
+    border: 1px solid #fecaca;
+}
+
+.btn-decline:hover {
+    background: #fee2e2;
+    transform: translateY(-1px);
+}
+
+/* ── Update quotation button ── */
+.btn-update-quotation {
     margin-top: 12px;
     width: 100%;
     padding: 10px;
     background: #f8fafc;
-    color: #1e293b;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
+    color: #6366f1;
+    border: 1px dashed #c7d2fe;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    transition: all 0.18s;
+}
+
+.btn-update-quotation:hover {
+    background: #eef2ff;
+    border-color: #a5b4fc;
+}
+
+/* ── Download PDF button ── */
+.btn-download-pdf {
+    margin-top: 12px;
+    width: 100%;
+    padding: 11px;
+    background: #0f172a;
+    color: #fff;
+    border: none;
+    border-radius: 12px;
     font-size: 13px;
     font-weight: 700;
     cursor: pointer;
@@ -390,12 +562,14 @@ display: none !important;
     align-items: center;
     justify-content: center;
     gap: 8px;
-    transition: all 0.2s;
+    transition: all 0.18s;
+    letter-spacing: 0.01em;
 }
 
 .btn-download-pdf:hover {
-    background: #f1f5f9;
-    border-color: #cbd5e1;
+    background: #1e293b;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.3);
 }
 
 /* MODAL STYLES */
