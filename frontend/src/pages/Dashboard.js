@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { getSession } from "../lib/session";
 import ProviderDashboard from "./ProviderDashboard";
@@ -38,40 +38,18 @@ const STATUS_META = {
   cancelled:     { label: "Cancelled",    color: "#ef4444", bg: "#fee2e2" },
 };
 
-const MY_BOOKINGS = [
-  { id:1, provider:"Karim Mejri",    service:"Plumbing Repair",    date:"Mar 26, 2026", time:"10:00 AM", amount:120, status:"confirmed",   city:"Tunis",  rating:null },
-  { id:2, provider:"Nour Belhaj",    service:"Electrical Install", date:"Mar 28, 2026", time:"02:00 PM", amount:200, status:"pending",     city:"Sousse", rating:null },
-  { id:3, provider:"Slim Gharbi",    service:"Room Painting",      date:"Mar 20, 2026", time:"09:00 AM", amount:350, status:"completed",   city:"Sfax",   rating:5   },
-  { id:4, provider:"Ines Ferchichi", service:"Deep Cleaning",      date:"Mar 18, 2026", time:"11:00 AM", amount:75,  status:"completed",   city:"Tunis",  rating:4   },
-  { id:5, provider:"Karim Mejri",    service:"Plumbing Repair",    date:"Mar 10, 2026", time:"03:00 PM", amount:95,  status:"completed",   city:"Tunis",  rating:5   },
-  { id:6, provider:"Ines Ferchichi", service:"Deep Cleaning",      date:"Mar 22, 2026", time:"08:00 AM", amount:75,  status:"cancelled",   city:"Nabeul", rating:null },
-];
-
-const SAVED_PROVIDERS = [
-  { id:1, name:"Karim Mejri",    category:"Plumbing",   rating:4.9, jobs:34, city:"Tunis"  },
-  { id:2, name:"Nour Belhaj",    category:"Electrical", rating:4.7, jobs:21, city:"Sousse" },
-  { id:3, name:"Ines Ferchichi", category:"Cleaning",   rating:4.8, jobs:56, city:"Tunis"  },
-];
-
-const APPLIED_TASKS = [
-  { id:1, title:"Fix leaking pipe in bathroom",   category:"Plumbing",   budget:"120 TND", applicants:4, date:"Apr 05, 2026", status:"open",      image:null },
-  { id:2, title:"Electrical panel installation",  category:"Electrical", budget:"250 TND", applicants:2, date:"Apr 07, 2026", status:"in-progress",image:null },
-  { id:3, title:"Full apartment deep cleaning",   category:"Cleaning",   budget:"90 TND",  applicants:7, date:"Apr 08, 2026", status:"open",       image:null },
-];
-
 const TASK_STATUS_META = {
-  open:        { label:"Open",        color:"#10b981", bg:"#d1fae5" },
-  "in-progress":{ label:"In Progress",color:"#8b5cf6", bg:"#ede9fe" },
-  closed:      { label:"Closed",      color:"#6b7280", bg:"#f1f5f9" },
+  open:          { label:"Open",        color:"#10b981", bg:"#d1fae5" },
+  "in-progress": { label:"In Progress", color:"#8b5cf6", bg:"#ede9fe" },
+  closed:        { label:"Closed",      color:"#6b7280", bg:"#f1f5f9" },
+  completed:     { label:"Completed",   color:"#10b981", bg:"#d1fae5" },
+  cancelled:     { label:"Cancelled",   color:"#ef4444", bg:"#fee2e2" },
 };
 
-const Stars = ({ n }) => (
-  <div style={{ display: "flex", gap: 2 }}>
-    {Array.from({ length: 5 }, (_, i) => (
+
+const Stars = ({ n }) => Array.from({ length: 5 }, (_, i) => (
   <span key={i} style={{ color: i < n ? "#f59e0b" : "#e5e7eb", fontSize: 13 }}>★</span>
-    ))}
-  </div>
-);
+));
 
 const StatusBadge = ({ status }) => {
   const m = STATUS_META[status] || STATUS_META.pending;
@@ -86,12 +64,19 @@ const TASK_CATEGORIES = [
 ];
 
 function PostTaskModal({ onClose, session }) {
-  const [form, setForm]       = useState({ title: "", description: "", category: "" });
-  const [photo, setPhoto]     = useState(null);
+  const [form, setForm]             = useState({ title: "", description: "", category: "", location: ""});
+  const [image, setPhoto]           = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const [error, setError]     = useState("");
+  const [loading, setLoading]       = useState(false);
+  const [success, setSuccess]       = useState(false);
+  const [error, setError]           = useState("");
+  const [activeField, setActiveField] = useState(null);
+
+  const user    = session?.user;
+  const name    = user?.name || "Client";
+  const initials = name.trim().split(/\s+/).map(n => n[0]).join("").toUpperCase().slice(0, 2);
+  const API_URL = "http://localhost:5000";
+  const profileImageUrl = user?.profileImage ? `${API_URL}/uploads/${user.profileImage}` : null;
 
   const valid = form.title.trim().length > 3 && form.description.trim().length > 10;
 
@@ -111,7 +96,8 @@ function PostTaskModal({ onClose, session }) {
       formData.append("title",       form.title.trim());
       formData.append("description", form.description.trim());
       if (form.category) formData.append("category", form.category);
-      if (photo)         formData.append("photo", photo);
+      if (form.location) formData.append("location", form.location);
+      if (image)         formData.append("image",    image);
       const res = await fetch("http://localhost:5000/tasks", {
         method: "POST",
         headers: { Authorization: `Bearer ${session?.token}` },
@@ -129,255 +115,363 @@ function PostTaskModal({ onClose, session }) {
     }
   };
 
-  // ── Overlay (fixed positioned via inline style to avoid iframe issues) ──────
+  const inputStyle = (field, extra = {}) => ({
+    width: "100%", padding: "9px 12px",
+    borderRadius: 8,
+    border: `1.5px solid ${activeField === field ? "#0a0a0a" : "#e5e7eb"}`,
+    fontSize: 13, fontFamily: "'DM Sans',sans-serif",
+    outline: "none", color: "#0a0a0a",
+    background: "#fff",
+    transition: "border-color 0.15s",
+    boxSizing: "border-box",
+    ...extra,
+  });
+
+  const labelStyle = {
+    display: "block", fontSize: 10.5, fontWeight: 700,
+    color: "#6b7280", textTransform: "uppercase",
+    letterSpacing: "0.07em", marginBottom: 5,
+  };
+
   return (
     <div style={{
       position: "fixed", inset: 0, zIndex: 999,
-      background: "rgba(0,0,0,0.55)",
+      background: "rgba(10,10,10,0.65)",
+      backdropFilter: "blur(4px)",
       display: "flex", alignItems: "center", justifyContent: "center",
-      padding: 20,
+      padding: "16px",
     }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div style={{
-        background: "#fff", borderRadius: 18, width: "100%", maxWidth: 480,
-        boxShadow: "0 24px 64px rgba(0,0,0,0.18)",
-        animation: "dbFade 0.2s ease",
+        display: "flex",
+        width: "100%", maxWidth: 820,
+        maxHeight: "calc(100vh - 32px)",
+        borderRadius: 16,
         overflow: "hidden",
+        boxShadow: "0 32px 80px rgba(0,0,0,0.28)",
+        animation: "dbFade 0.22s cubic-bezier(0.34,1.1,0.64,1)",
       }}>
 
-        {/* Header */}
+        {/* ── LEFT PANEL — Client identity + task photo ── */}
         <div style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "20px 24px 16px",
-          borderBottom: "1px solid #f1f5f9",
+          width: 260, minWidth: 260, flexShrink: 0,
+          background: "linear-gradient(160deg, #0a0a0a 0%, #1a1a2e 60%, #0f3460 100%)",
+          display: "flex", flexDirection: "column",
+          alignItems: "center",
+          padding: "36px 24px 28px",
+          position: "relative",
+          overflow: "hidden",
         }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{
-              width: 36, height: 36, borderRadius: 10,
-              background: "#0ea5e9", color: "#fff",
-              display: "flex", alignItems: "center", justifyContent: "center",
-            }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-              </svg>
-            </div>
-            <div>
-              <h2 style={{ fontFamily:"'Sora',sans-serif", fontSize:16, fontWeight:800, color:"#0a0a0a", margin:0 }}>Post a Task</h2>
-              <p style={{ fontSize:12, color:"#9ca3af", margin:0 }}>Describe what you need done</p>
-            </div>
-          </div>
+          {/* Decorative circles */}
+          <div style={{ position:"absolute", top:-60, right:-60, width:200, height:200, borderRadius:"50%", background:"rgba(255,255,255,0.03)" }}/>
+          <div style={{ position:"absolute", bottom:-40, left:-40, width:160, height:160, borderRadius:"50%", background:"rgba(14,165,233,0.08)" }}/>
+
+          {/* Close button */}
           <button onClick={onClose} style={{
-            background:"none", border:"none", cursor:"pointer",
-            color:"#9ca3af", borderRadius:8, padding:6,
+            position:"absolute", top:14, right:14,
+            background:"rgba(255,255,255,0.1)", border:"none", cursor:"pointer",
+            color:"rgba(255,255,255,0.7)", borderRadius:8, width:30, height:30,
             display:"flex", alignItems:"center", justifyContent:"center",
             transition:"background 0.15s",
           }}
-            onMouseEnter={e => e.currentTarget.style.background="#f1f5f9"}
-            onMouseLeave={e => e.currentTarget.style.background="none"}
+            onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.18)"}
+            onMouseLeave={e=>e.currentTarget.style.background="rgba(255,255,255,0.1)"}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
             </svg>
           </button>
+
+          {/* Client avatar */}
+          <div style={{ position:"relative", marginBottom:14, zIndex:1 }}>
+            <div style={{
+              width:80, height:80, borderRadius:20,
+              border:"3px solid rgba(255,255,255,0.15)",
+              overflow:"hidden", flexShrink:0,
+              boxShadow:"0 8px 24px rgba(0,0,0,0.4)",
+            }}>
+              {profileImageUrl ? (
+                <img src={profileImageUrl} alt={name} style={{ width:"100%", height:"100%", objectFit:"cover" }}/>
+              ) : (
+                <div style={{
+                  width:"100%", height:"100%",
+                  background:"linear-gradient(135deg,#0ea5e9,#0284c7)",
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                  fontSize:26, fontWeight:800, color:"#fff",
+                  fontFamily:"'Sora',sans-serif",
+                }}>{initials}</div>
+              )}
+            </div>
+            {/* Online dot */}
+            <div style={{
+              position:"absolute", bottom:4, right:4,
+              width:14, height:14, borderRadius:"50%",
+              background:"#10b981", border:"2.5px solid #0a0a0a",
+            }}/>
+          </div>
+
+          <p style={{ fontFamily:"'Sora',sans-serif", fontSize:14, fontWeight:700, color:"#fff", margin:"0 0 2px", textAlign:"center", zIndex:1 }}>{name}</p>
+          <p style={{ fontSize:11, color:"rgba(255,255,255,0.45)", margin:"0 0 24px", zIndex:1 }}>Client · FixHub</p>
+
+          {/* Task photo upload */}
+          <div style={{ width:"100%", zIndex:1 }}>
+            <p style={{ fontSize:10.5, fontWeight:700, color:"rgba(255,255,255,0.4)", textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:10 }}>
+              Task Photo <span style={{fontWeight:400,textTransform:"none"}}>(optional)</span>
+            </p>
+
+            {photoPreview ? (
+              <div style={{ position:"relative", borderRadius:12, overflow:"hidden", border:"2px solid rgba(255,255,255,0.12)" }}>
+                <img src={photoPreview} alt="preview" style={{ width:"100%", height:130, objectFit:"cover", display:"block" }}/>
+                <div style={{ position:"absolute", inset:0, background:"linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 50%)" }}/>
+                <button onClick={() => { setPhoto(null); setPhotoPreview(null); }} style={{
+                  position:"absolute", top:8, right:8,
+                  background:"rgba(0,0,0,0.6)", border:"none", borderRadius:6,
+                  color:"#fff", padding:"4px 9px", fontSize:11, fontWeight:700, cursor:"pointer",
+                  backdropFilter:"blur(4px)",
+                }}>✕ Remove</button>
+                <p style={{ position:"absolute", bottom:8, left:10, fontSize:11, color:"rgba(255,255,255,0.8)", fontWeight:600, margin:0 }}>Photo added ✓</p>
+              </div>
+            ) : (
+              <label style={{
+                display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
+                gap:8, width:"100%", padding:"22px 12px",
+                borderRadius:12, border:"1.5px dashed rgba(255,255,255,0.15)",
+                background:"rgba(255,255,255,0.04)",
+                cursor:"pointer", transition:"all 0.15s", boxSizing:"border-box",
+              }}
+                onMouseEnter={e=>{ e.currentTarget.style.borderColor="rgba(14,165,233,0.6)"; e.currentTarget.style.background="rgba(14,165,233,0.06)"; }}
+                onMouseLeave={e=>{ e.currentTarget.style.borderColor="rgba(255,255,255,0.15)"; e.currentTarget.style.background="rgba(255,255,255,0.04)"; }}
+              >
+                <div style={{ width:40, height:40, borderRadius:10, background:"rgba(255,255,255,0.07)", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
+                    <polyline points="21 15 16 10 5 21"/>
+                  </svg>
+                </div>
+                <div style={{ textAlign:"center" }}>
+                  <p style={{ fontSize:12, color:"rgba(255,255,255,0.55)", fontWeight:600, margin:"0 0 2px" }}>Click to upload</p>
+                  <p style={{ fontSize:10.5, color:"rgba(255,255,255,0.25)", margin:0 }}>JPG, PNG, WEBP · max 5 MB</p>
+                </div>
+                <input type="file" accept="image/*" onChange={handlePhotoChange} style={{ display:"none" }}/>
+              </label>
+            )}
+          </div>
+
+          {/* Tips */}
+          <div style={{ marginTop:"auto", paddingTop:24, width:"100%", zIndex:1 }}>
+            {[
+              { icon:"⚡", text:"Get offers in under 2 hours" },
+              { icon:"🛡️", text:"Vetted & verified providers" },
+              { icon:"💬", text:"Chat directly with providers" },
+            ].map((tip, i) => (
+              <div key={i} style={{ display:"flex", alignItems:"center", gap:9, marginBottom:10 }}>
+                <span style={{ fontSize:14 }}>{tip.icon}</span>
+                <span style={{ fontSize:11.5, color:"rgba(255,255,255,0.4)", lineHeight:1.4 }}>{tip.text}</span>
+              </div>
+            ))}
+          </div>
         </div>
 
-        {/* Body */}
-        <div style={{ padding: "20px 24px" }}>
+        {/* ── RIGHT PANEL — Form ── */}
+        <div style={{
+          flex:1, background:"#fff",
+          display:"flex", flexDirection:"column",
+          overflow:"hidden",
+        }}>
 
-          {success ? (
-            <div style={{ textAlign:"center", padding:"24px 0" }}>
+          {/* Form header */}
+          <div style={{
+            padding:"24px 28px 18px",
+            borderBottom:"1px solid #f1f5f9",
+            flexShrink:0,
+          }}>
+            <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:4 }}>
               <div style={{
-                width:56, height:56, borderRadius:"50%",
-                background:"#d1fae5", margin:"0 auto 14px",
-                display:"flex", alignItems:"center", justifyContent:"center",
+                width:32, height:32, borderRadius:8,
+                background:"#0a0a0a", color:"#fff",
+                display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0,
               }}>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="20 6 9 17 4 12"/>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
                 </svg>
               </div>
-              <h3 style={{ fontFamily:"'Sora',sans-serif", fontSize:16, fontWeight:800, color:"#0a0a0a", marginBottom:6 }}>Task Posted!</h3>
-              <p style={{ fontSize:13.5, color:"#6b7280", marginBottom:20 }}>
-                Providers will be able to see your task and reach out to you.
-              </p>
-              <button onClick={onClose} style={{
-                padding:"10px 28px", borderRadius:10, border:"none",
-                background:"#0a0a0a", color:"#fff",
-                fontFamily:"'Sora',sans-serif", fontSize:13, fontWeight:700,
-                cursor:"pointer",
-              }}>Done</button>
+              <div>
+                <h2 style={{ fontFamily:"'Sora',sans-serif", fontSize:17, fontWeight:800, color:"#0a0a0a", margin:0 }}>Post a Task</h2>
+                <p style={{ fontSize:12, color:"#9ca3af", margin:0 }}>Fill in the details and get offers fast</p>
+              </div>
             </div>
-          ) : (
-            <>
-              {/* Title */}
-              <div style={{ marginBottom:16 }}>
-                <label style={{
-                  display:"block", fontSize:11, fontWeight:700,
-                  color:"#6b7280", textTransform:"uppercase",
-                  letterSpacing:"0.06em", marginBottom:6,
-                }}>Task Title *</label>
-                <input
-                  type="text"
-                  value={form.title}
-                  placeholder="e.g. Fix leaking pipe in bathroom"
-                  onChange={e => setForm({...form, title: e.target.value})}
-                  maxLength={255}
-                  style={{
-                    width:"100%", padding:"10px 13px", borderRadius:10,
-                    border: `1.5px solid ${form.title.length > 3 ? "#d1fae5" : "#e5e7eb"}`,
-                    fontSize:13.5, fontFamily:"'DM Sans',sans-serif",
-                    outline:"none", color:"#0a0a0a",
-                    transition:"border-color 0.15s",
-                  }}
-                />
-                <p style={{ fontSize:11, color:"#9ca3af", marginTop:4 }}>
-                  {form.title.length}/255 characters
-                </p>
-              </div>
+          </div>
 
-              {/* Category */}
-              <div style={{ marginBottom:16 }}>
-                <label style={{
-                  display:"block", fontSize:11, fontWeight:700,
-                  color:"#6b7280", textTransform:"uppercase",
-                  letterSpacing:"0.06em", marginBottom:6,
-                }}>Category</label>
-                <select
-                  value={form.category}
-                  onChange={e => setForm({...form, category: e.target.value})}
-                  style={{
-                    width:"100%", padding:"10px 13px", borderRadius:10,
-                    border:"1.5px solid #e5e7eb", fontSize:13.5,
-                    fontFamily:"'DM Sans',sans-serif", outline:"none",
-                    color: form.category ? "#0a0a0a" : "#9ca3af",
-                    background:"#fff", cursor:"pointer",
-                  }}
-                >
-                  <option value="">Select a category (optional)</option>
-                  {TASK_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
+          {/* Form body — no scroll, compact fields */}
+          <div style={{ flex:1, padding:"20px 28px", overflow:"hidden", display:"flex", flexDirection:"column", justifyContent:"space-between" }}>
 
-              {/* Description */}
-              <div style={{ marginBottom:20 }}>
-                <label style={{
-                  display:"block", fontSize:11, fontWeight:700,
-                  color:"#6b7280", textTransform:"uppercase",
-                  letterSpacing:"0.06em", marginBottom:6,
-                }}>Description *</label>
-                <textarea
-                  value={form.description}
-                  placeholder="Describe your task in detail — location, urgency, any specific requirements..."
-                  onChange={e => setForm({...form, description: e.target.value})}
-                  rows={4}
-                  style={{
-                    width:"100%", padding:"10px 13px", borderRadius:10,
-                    border: `1.5px solid ${form.description.length > 10 ? "#d1fae5" : "#e5e7eb"}`,
-                    fontSize:13.5, fontFamily:"'DM Sans',sans-serif",
-                    outline:"none", color:"#0a0a0a", resize:"vertical",
-                    lineHeight:1.5, transition:"border-color 0.15s",
-                  }}
-                />
-                <p style={{ fontSize:11, color:"#9ca3af", marginTop:4 }}>
-                  Minimum 10 characters · {form.description.length} typed
-                </p>
-              </div>
-
-              {/* Photo */}
-              <div style={{ marginBottom:20 }}>
-                <label style={{
-                  display:"block", fontSize:11, fontWeight:700,
-                  color:"#6b7280", textTransform:"uppercase",
-                  letterSpacing:"0.06em", marginBottom:6,
-                }}>Photo <span style={{color:"#d1d5db",fontWeight:500,textTransform:"none"}}>(optional)</span></label>
-
-                {photoPreview ? (
-                  <div style={{ position:"relative", borderRadius:10, overflow:"hidden", border:"1.5px solid #d1fae5" }}>
-                    <img src={photoPreview} alt="preview" style={{ width:"100%", height:140, objectFit:"cover", display:"block" }}/>
-                    <button onClick={() => { setPhoto(null); setPhotoPreview(null); }} style={{
-                      position:"absolute", top:8, right:8,
-                      background:"rgba(0,0,0,0.55)", border:"none", borderRadius:6,
-                      color:"#fff", padding:"4px 8px", fontSize:11, fontWeight:700, cursor:"pointer",
-                    }}>✕ Remove</button>
-                  </div>
-                ) : (
-                  <label style={{
-                    display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
-                    gap:6, width:"100%", padding:"20px 13px", borderRadius:10,
-                    border:"1.5px dashed #d1d5db", background:"#f9fafb",
-                    cursor:"pointer", transition:"border-color 0.15s",
-                  }}
-                    onMouseEnter={e=>e.currentTarget.style.borderColor="#0ea5e9"}
-                    onMouseLeave={e=>e.currentTarget.style.borderColor="#d1d5db"}
-                  >
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
-                      <polyline points="21 15 16 10 5 21"/>
-                    </svg>
-                    <span style={{ fontSize:12.5, color:"#9ca3af", fontWeight:500 }}>Click to upload a photo</span>
-                    <span style={{ fontSize:11, color:"#d1d5db" }}>JPG, PNG, WEBP · max 5 MB</span>
-                    <input type="file" accept="image/*" onChange={handlePhotoChange} style={{ display:"none" }}/>
-                  </label>
-                )}
-              </div>
-
-              {/* Error */}
-              {error && (
+            {success ? (
+              <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", height:"100%", textAlign:"center" }}>
                 <div style={{
-                  background:"#fef2f2", color:"#b91c1c",
-                  border:"1px solid #fecaca", borderRadius:10,
-                  padding:"10px 14px", fontSize:13, marginBottom:16,
-                  display:"flex", alignItems:"center", gap:8,
+                  width:64, height:64, borderRadius:20,
+                  background:"linear-gradient(135deg,#d1fae5,#a7f3d0)",
+                  margin:"0 auto 16px",
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                  boxShadow:"0 8px 24px rgba(16,185,129,0.2)",
                 }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                  {error}
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
                 </div>
-              )}
-
-              {/* Footer */}
-              <div style={{ display:"flex", gap:10 }}>
+                <h3 style={{ fontFamily:"'Sora',sans-serif", fontSize:18, fontWeight:800, color:"#0a0a0a", marginBottom:8 }}>Task Posted! 🎉</h3>
+                <p style={{ fontSize:13.5, color:"#6b7280", marginBottom:6, maxWidth:280 }}>
+                  Providers in your area will see your task and send you offers.
+                </p>
+                <p style={{ fontSize:12, color:"#10b981", fontWeight:600, marginBottom:24 }}>Average response time: under 2 hours</p>
                 <button onClick={onClose} style={{
-                  flex:1, padding:"11px", borderRadius:10,
-                  border:"1.5px solid #e5e7eb", background:"#fff",
-                  fontSize:13, fontWeight:600, cursor:"pointer", color:"#6b7280",
-                  fontFamily:"'DM Sans',sans-serif",
-                }}>Cancel</button>
-                <button
-                  onClick={handleSubmit}
-                  disabled={!valid || loading}
-                  style={{
-                    flex:2, padding:"11px", borderRadius:10, border:"none",
-                    background: valid ? "#0ea5e9" : "#e5e7eb",
-                    color: valid ? "#fff" : "#9ca3af",
-                    fontFamily:"'Sora',sans-serif", fontSize:13, fontWeight:700,
-                    cursor: valid ? "pointer" : "not-allowed",
-                    display:"flex", alignItems:"center", justifyContent:"center", gap:7,
-                    transition:"background 0.15s",
-                  }}
-                >
-                  {loading ? (
-                    <>
-                      <div style={{
-                        width:13, height:13, borderRadius:"50%",
-                        border:"2px solid rgba(255,255,255,0.3)",
-                        borderTopColor:"#fff",
-                        animation:"spin 0.7s linear infinite",
-                      }}/>
-                      Posting…
-                    </>
-                  ) : (
-                    <>
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                      Post Task
-                    </>
-                  )}
-                </button>
+                  padding:"11px 36px", borderRadius:10, border:"none",
+                  background:"#0a0a0a", color:"#fff",
+                  fontFamily:"'Sora',sans-serif", fontSize:13, fontWeight:700,
+                  cursor:"pointer", transition:"transform 0.15s",
+                }}
+                  onMouseEnter={e=>e.currentTarget.style.transform="translateY(-1px)"}
+                  onMouseLeave={e=>e.currentTarget.style.transform="translateY(0)"}
+                >Back to Dashboard</button>
               </div>
-            </>
-          )}
+            ) : (
+              <>
+                <div>
+                  {/* Row 1 — Title */}
+                  <div style={{ marginBottom:14 }}>
+                    <label style={labelStyle}>Task Title *</label>
+                    <input
+                      type="text"
+                      value={form.title}
+                      placeholder="e.g. Fix leaking pipe in bathroom"
+                      onChange={e => setForm({...form, title: e.target.value})}
+                      onFocus={()=>setActiveField("title")}
+                      onBlur={()=>setActiveField(null)}
+                      maxLength={255}
+                      style={inputStyle("title")}
+                    />
+                    <div style={{ display:"flex", justifyContent:"space-between", marginTop:3 }}>
+                      <span style={{ fontSize:10.5, color: form.title.length > 3 ? "#10b981" : "transparent" }}>✓ Good title</span>
+                      <span style={{ fontSize:10.5, color:"#d1d5db" }}>{form.title.length}/255</span>
+                    </div>
+                  </div>
+
+                  {/* Row 2 — Category + Location (side by side) */}
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:14 }}>
+                    <div>
+                      <label style={labelStyle}>Category</label>
+                      <select
+                        value={form.category}
+                        onChange={e => setForm({...form, category: e.target.value})}
+                        onFocus={()=>setActiveField("category")}
+                        onBlur={()=>setActiveField(null)}
+                        style={inputStyle("category", { color: form.category ? "#0a0a0a" : "#9ca3af", cursor:"pointer" })}
+                      >
+                        <option value="">Select (optional)</option>
+                        {TASK_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Location</label>
+                      <input
+                        type="text"
+                        value={form.location}
+                        placeholder="e.g. Tunis, Lac 2"
+                        onChange={e => setForm({...form, location: e.target.value})}
+                        onFocus={()=>setActiveField("location")}
+                        onBlur={()=>setActiveField(null)}
+                        style={inputStyle("location")}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Row 3 — Description */}
+                  <div style={{ marginBottom:14 }}>
+                    <label style={labelStyle}>Description *</label>
+                    <textarea
+                      value={form.description}
+                      placeholder="Describe your task in detail — urgency, materials needed, any requirements..."
+                      onChange={e => setForm({...form, description: e.target.value})}
+                      onFocus={()=>setActiveField("description")}
+                      onBlur={()=>setActiveField(null)}
+                      rows={3}
+                      style={inputStyle("description", { resize:"none", lineHeight:1.5 })}
+                    />
+                    <div style={{ display:"flex", justifyContent:"space-between", marginTop:3 }}>
+                      <span style={{ fontSize:10.5, color: form.description.length > 10 ? "#10b981" : "transparent" }}>✓ Description complete</span>
+                      <span style={{ fontSize:10.5, color:"#d1d5db" }}>{form.description.length} chars</span>
+                    </div>
+                  </div>
+                  {/* Error */}
+                  {error && (
+                    <div style={{
+                      background:"#fef2f2", color:"#b91c1c",
+                      border:"1px solid #fecaca", borderRadius:8,
+                      padding:"9px 13px", fontSize:12.5, marginBottom:12,
+                      display:"flex", alignItems:"center", gap:8,
+                    }}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                      {error}
+                    </div>
+                  )}
+                </div>
+
+                {/* Footer buttons */}
+                <div style={{ display:"flex", gap:10, paddingTop:4 }}>
+                  <button onClick={onClose} style={{
+                    flex:1, padding:"11px", borderRadius:9,
+                    border:"1.5px solid #e5e7eb", background:"#fff",
+                    fontSize:13, fontWeight:600, cursor:"pointer", color:"#6b7280",
+                    fontFamily:"'DM Sans',sans-serif", transition:"all 0.15s",
+                  }}
+                    onMouseEnter={e=>{ e.currentTarget.style.borderColor="#0a0a0a"; e.currentTarget.style.color="#0a0a0a"; }}
+                    onMouseLeave={e=>{ e.currentTarget.style.borderColor="#e5e7eb"; e.currentTarget.style.color="#6b7280"; }}
+                  >Cancel</button>
+                  <button
+                    onClick={handleSubmit}
+                    disabled={!valid || loading}
+                    style={{
+                      flex:2.5, padding:"11px", borderRadius:9, border:"none",
+                      background: valid && !loading ? "#0a0a0a" : "#e5e7eb",
+                      color: valid && !loading ? "#fff" : "#9ca3af",
+                      fontFamily:"'Sora',sans-serif", fontSize:13, fontWeight:700,
+                      cursor: valid && !loading ? "pointer" : "not-allowed",
+                      display:"flex", alignItems:"center", justifyContent:"center", gap:8,
+                      transition:"all 0.15s",
+                      boxShadow: valid && !loading ? "0 4px 14px rgba(0,0,0,0.18)" : "none",
+                    }}
+                    onMouseEnter={e=>{ if(valid && !loading) e.currentTarget.style.transform="translateY(-1px)"; }}
+                    onMouseLeave={e=>{ e.currentTarget.style.transform="translateY(0)"; }}
+                  >
+                    {loading ? (
+                      <>
+                        <div style={{
+                          width:13, height:13, borderRadius:"50%",
+                          border:"2px solid rgba(255,255,255,0.3)",
+                          borderTopColor:"#fff",
+                          animation:"spin 0.7s linear infinite",
+                        }}/>
+                        Publishing task…
+                      </>
+                    ) : (
+                      <>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                        </svg>
+                        Publish Task
+                      </>
+                    )}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes dbFade { from { opacity:0; transform:scale(0.96) translateY(8px); } to { opacity:1; transform:scale(1) translateY(0); } }
+      `}</style>
     </div>
   );
 }
@@ -615,43 +709,180 @@ function RatingWidget({ providerId, providerName }) {
 
 // ── Client Dashboard ──────────────────────────────────────────────────────────
 function ClientDashboard() {
-  const [tab, setTab]           = useState("overview");
-  const [filter, setFilter]     = useState("all");
+  const [tab, setTab]                   = useState("overview");
   const [showTaskModal, setShowTaskModal] = useState(false);
-  const navigate            = useNavigate();
-  const session             = getSession();
-  const user                = session?.user;
-  const name                = user?.name || "Client";
-  const initials            = name.trim().split(/\s+/).map(n => n[0]).join("").toUpperCase().slice(0, 2);
+  const [dashData, setDashData]         = useState(null);   // { stats, appliedTasks }
+  const [loadingDash, setLoadingDash]   = useState(true);
+  const [dashError, setDashError]       = useState(null);
 
-  const API_URL = "http://localhost:5000";
-
-  const profileImageUrl = user?.profileImage 
-  ? `${API_URL}/uploads/${user.profileImage}` : null;
-
-  const totalSpent     = MY_BOOKINGS.filter(b => b.status === "completed").reduce((s,b) => s+b.amount, 0);
-  const completedCount = MY_BOOKINGS.filter(b => b.status === "completed").length;
-  const activeCount    = MY_BOOKINGS.filter(b => ["confirmed","pending","in-progress"].includes(b.status)).length;
-  const postedTasksCount = 3; // placeholder — replace with real API data
-
-  const filteredBookings = filter === "all" ? MY_BOOKINGS : MY_BOOKINGS.filter(b => b.status === filter);
+  const navigate        = useNavigate();
+  const session         = getSession();
+  const user            = session?.user;
+  const name            = user?.name || "Client";
+  const initials        = name.trim().split(/\s+/).map(n => n[0]).join("").toUpperCase().slice(0, 2);
+  const API_URL         = "http://localhost:5000";
+  const profileImageUrl = user?.profileImage ? `${API_URL}/uploads/${user.profileImage}` : null;
 
   const TABS = [
-    { id:"overview", label:"Overview",    icon:Icon.grid  },
-    { id:"saved",    label:"My Tasks",    icon:Icon.plus  },
+    { id: "overview", label: "Overview", icon: Icon.grid },
+    { id: "tasks",    label: "My Tasks", icon: Icon.plus },
   ];
+
+  // ── Fetch dashboard data ────────────────────────────────────────────────────
+  const fetchDashboard = async () => {
+    if (!user?.id) return;
+    setLoadingDash(true);
+    setDashError(null);
+    try {
+      const res = await fetch(`${API_URL}/dashboard/client/${user.id}`, {
+        headers: { Authorization: `Bearer ${session?.token}` },
+      });
+      console.log("🚀 ~ fetchDashboard ~ res:", res)
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Erreur chargement dashboard");
+      }
+      const json = await res.json();
+      setDashData(json.data);  // { stats: {...}, appliedTasks: [...] }
+    } catch (err) {
+      console.error(err);
+      setDashError(err.message);
+    } finally {
+      setLoadingDash(false);
+    }
+  };
+
+  useEffect(() => { fetchDashboard(); }, [user?.id]);
+
+  // ── Destructure API data with safe fallbacks ────────────────────────────────
+  const stats        = dashData?.stats        || {};
+  const appliedTasks = dashData?.appliedTasks || [];
+
+  const totalSpent      = stats.totalSpent      ?? "—";
+  const completedJobs   = stats.completedJobs   ?? "—";
+  const activeBookings  = stats.activeBookings  ?? "—";
+  const postedTasks     = stats.postedTasks     ?? "—";
+
+  // ── Skeleton KPI card ───────────────────────────────────────────────────────
+  const KpiSkeleton = () => (
+    <div className="db-kpi" style={{"--accent":"#e5e7eb"}}>
+      <div className="db-kpi-icon" style={{background:"#f1f5f9"}}/>
+      <div className="db-kpi-body">
+        <span className="db-kpi-label" style={{background:"#f1f5f9",borderRadius:4,display:"block",width:80,height:10,marginBottom:8}}/>
+        <span className="db-kpi-value" style={{background:"#f1f5f9",borderRadius:4,display:"block",width:50,height:22}}/>
+      </div>
+    </div>
+  );
+
+  // ── Task card ───────────────────────────────────────────────────────────────
+  const TaskCard = ({ task }) => {
+    const tm = TASK_STATUS_META[task.status] || TASK_STATUS_META.open;
+    return (
+      <div style={{
+        border:"1px solid #f1f5f9", borderRadius:12, overflow:"hidden",
+        background:"#fff", transition:"box-shadow 0.2s, transform 0.2s", cursor:"pointer",
+        boxShadow:"0 1px 3px rgba(0,0,0,.04)",
+      }}
+        onMouseEnter={e=>{ e.currentTarget.style.boxShadow="0 6px 20px rgba(0,0,0,.09)"; e.currentTarget.style.transform="translateY(-2px)"; }}
+        onMouseLeave={e=>{ e.currentTarget.style.boxShadow="0 1px 3px rgba(0,0,0,.04)"; e.currentTarget.style.transform="translateY(0)"; }}
+      >
+        {task.image && (
+          <div style={{position:"relative"}}>
+            <img src={`${API_URL}/${task.image}`} alt={task.title} style={{width:"100%",height:90,objectFit:"cover",display:"block"}}/>
+            <div style={{position:"absolute",inset:0,background:"linear-gradient(to top,rgba(0,0,0,0.3),transparent)"}}/>
+          </div>
+        )}
+        <div style={{padding:"12px 14px"}}>
+          <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:8,marginBottom:8}}>
+            <span style={{fontSize:13,fontWeight:700,color:"#0a0a0a",lineHeight:1.35,flex:1}}>{task.title}</span>
+            <span style={{
+              background:tm.bg, color:tm.color,
+              padding:"2px 9px", borderRadius:20, fontSize:10.5, fontWeight:700,
+              whiteSpace:"nowrap", flexShrink:0,
+            }}>{tm.label}</span>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:8}}>
+            {task.category && (
+              <span style={{background:"#f1f5f9",color:"#475569",padding:"2px 9px",borderRadius:20,fontSize:11,fontWeight:600}}>
+                {task.category}
+              </span>
+            )}
+            <span style={{fontSize:11.5,color:"#9ca3af",display:"flex",alignItems:"center",gap:3}}>
+              {Icon.clock} {task.date}
+            </span>
+            {task.budget && (
+              <span style={{fontSize:12,color:"#10b981",fontWeight:700,marginLeft:"auto"}}>
+                {task.budget}
+              </span>
+            )}
+          </div>
+          <div style={{
+            display:"flex", alignItems:"center", gap:6,
+            paddingTop:8, borderTop:"1px solid #f8fafc",
+          }}>
+            <div style={{
+              width:20, height:20, borderRadius:6,
+              background:"#f1f5f9", display:"flex", alignItems:"center", justifyContent:"center",
+            }}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+              </svg>
+            </div>
+            <span style={{fontSize:11.5,color:"#9ca3af"}}>
+              <strong style={{color:"#374151",fontWeight:700}}>{task.applicants}</strong> provider{task.applicants !== 1 ? "s" : ""} applied
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ── Error state ─────────────────────────────────────────────────────────────
+  const ErrorBanner = () => (
+    <div style={{
+      display:"flex", alignItems:"center", gap:12,
+      background:"#fef2f2", border:"1px solid #fecaca",
+      borderRadius:12, padding:"14px 18px", marginBottom:20,
+    }}>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      <div style={{flex:1}}>
+        <p style={{fontSize:13,fontWeight:600,color:"#b91c1c",margin:0}}>{dashError}</p>
+        <p style={{fontSize:12,color:"#f87171",margin:"2px 0 0"}}>Impossible de charger les données du dashboard.</p>
+      </div>
+      <button onClick={fetchDashboard} style={{
+        padding:"6px 14px", borderRadius:8, border:"1px solid #fecaca",
+        background:"#fff", color:"#b91c1c", fontSize:12, fontWeight:600,
+        cursor:"pointer", transition:"background 0.15s",
+      }}
+        onMouseEnter={e=>e.currentTarget.style.background="#fef2f2"}
+        onMouseLeave={e=>e.currentTarget.style.background="#fff"}
+      >Réessayer</button>
+    </div>
+  );
 
   return (
     <div className="db-shell">
       <style>{STYLES}</style>
 
-      {showTaskModal && <PostTaskModal onClose={() => setShowTaskModal(false)} session={session} />}
+      {showTaskModal && (
+        <PostTaskModal
+          onClose={() => { setShowTaskModal(false); fetchDashboard(); }}
+          session={session}
+        />
+      )}
 
+      {/* ── Sidebar ── */}
       <aside className="db-sidebar">
         <div className="db-brand">{Icon.wrench} FixHub</div>
         <nav className="db-nav">
           {TABS.map(t => (
-            <button key={t.id} className={`db-nav-item ${tab===t.id?"db-nav-item--active":""}`} onClick={() => setTab(t.id)}>
+            <button key={t.id}
+              className={`db-nav-item ${tab === t.id ? "db-nav-item--active" : ""}`}
+              onClick={() => setTab(t.id)}
+            >
               {t.icon}<span>{t.label}</span>
             </button>
           ))}
@@ -665,7 +896,10 @@ function ClientDashboard() {
 
         <div className="db-sidebar-footer">
           <button className="db-profile-btn" onClick={() => navigate("/profile")}>
-            {profileImageUrl ? <img src={profileImageUrl} alt={name} className="db-sidebar-avatar"/> : <div className="db-sidebar-initials">{initials}</div>}
+            {profileImageUrl
+              ? <img src={profileImageUrl} alt={name} className="db-sidebar-avatar"/>
+              : <div className="db-sidebar-initials">{initials}</div>
+            }
             <div className="db-sidebar-info">
               <span className="db-sidebar-name">{name}</span>
               <span className="db-sidebar-role">Client</span>
@@ -675,109 +909,173 @@ function ClientDashboard() {
         </div>
       </aside>
 
+      {/* ── Main ── */}
       <main className="db-main">
         <div className="db-topbar">
           <div>
-            <h1 className="db-page-title">{TABS.find(t=>t.id===tab)?.label}</h1>
-            <p className="db-page-sub">{new Date().toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</p>
+            <h1 className="db-page-title">{TABS.find(t => t.id === tab)?.label}</h1>
+            <p className="db-page-sub">
+              {new Date().toLocaleDateString("en-GB", { weekday:"long", day:"numeric", month:"long", year:"numeric" })}
+            </p>
           </div>
-          <button className="db-cta" onClick={() => setShowTaskModal(true)}>{Icon.plus} Post a Task</button>
+          <div style={{display:"flex", alignItems:"center", gap:10}}>
+            {loadingDash && (
+              <span style={{fontSize:12, color:"#9ca3af", display:"flex", alignItems:"center", gap:6}}>
+                <div style={{
+                  width:12, height:12, borderRadius:"50%",
+                  border:"2px solid #e5e7eb", borderTopColor:"#0a0a0a",
+                  animation:"spin 0.7s linear infinite",
+                }}/>
+                Chargement…
+              </span>
+            )}
+            <button className="db-cta" onClick={() => setShowTaskModal(true)}>
+              {Icon.plus} Post a Task
+            </button>
+          </div>
         </div>
 
-        {/* OVERVIEW */}
+        {/* ── Error banner ── */}
+        {dashError && <ErrorBanner />}
+
+        {/* ══ OVERVIEW ══ */}
         {tab === "overview" && (
           <div className="db-fade">
+
+            {/* KPI Cards */}
             <div className="db-kpi-grid">
-              {[
-                { label:"Total Spent",       value:`${totalSpent} TND`, icon:Icon.check,    accent:"#0ea5e9" },
-                { label:"Completed Jobs",    value:completedCount,      icon:Icon.calendar, accent:"#10b981" },
-                { label:"Active Bookings",   value:activeCount,         icon:Icon.clock,    accent:"#8b5cf6" },
-                { label:"Posted Tasks",      value:postedTasksCount,    icon:Icon.plus,     accent:"#f59e0b" },
-              ].map((k,i) => (
-                <div className="db-kpi" key={i} style={{"--accent":k.accent}}>
-                  <div className="db-kpi-icon">{k.icon}</div>
-                  <div className="db-kpi-body">
-                    <span className="db-kpi-label">{k.label}</span>
-                    <span className="db-kpi-value">{k.value}</span>
+              {loadingDash ? (
+                [1,2,3,4].map(i => <KpiSkeleton key={i}/>)
+              ) : (
+                [
+                  { label:"Total Spent",      value: totalSpent !== "—" ? `${Number(totalSpent).toLocaleString()} TND` : "—", icon:Icon.check,    accent:"#0ea5e9" },
+                  { label:"Completed Jobs",   value: completedJobs,   icon:Icon.calendar, accent:"#10b981" },
+                  { label:"Active Bookings",  value: activeBookings,  icon:Icon.clock,    accent:"#8b5cf6" },
+                  { label:"Posted Tasks",     value: postedTasks,     icon:Icon.plus,     accent:"#f59e0b" },
+                ].map((k, i) => (
+                  <div className="db-kpi" key={i} style={{"--accent": k.accent}}>
+                    <div className="db-kpi-icon">{k.icon}</div>
+                    <div className="db-kpi-body">
+                      <span className="db-kpi-label">{k.label}</span>
+                      <span className="db-kpi-value">{k.value}</span>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
 
+            {/* Two-column: Chatbot + Applied Tasks */}
             <div className="db-two-col">
               <RecommendationBot navigate={navigate} />
 
-              <div className="db-card">
+              {/* Applied Tasks panel */}
+              <div className="db-card" style={{display:"flex", flexDirection:"column"}}>
                 <div className="db-card-head">
-                  <h3>Applied Tasks</h3>
-                  <span style={{fontSize:12,color:"#9ca3af",fontWeight:600}}>{APPLIED_TASKS.length} tasks</span>
+                  <h3>Posted Tasks</h3>
+                  {!loadingDash && (
+                    <span style={{
+                      background:"#f1f5f9", color:"#6b7280",
+                      padding:"2px 10px", borderRadius:20, fontSize:11, fontWeight:700,
+                    }}>
+                      {appliedTasks.length} task{appliedTasks.length !== 1 ? "s" : ""}
+                    </span>
+                  )}
                 </div>
-                <div style={{display:"flex",flexDirection:"column",gap:12}}>
-                  {APPLIED_TASKS.map(task => {
-                    const tm = TASK_STATUS_META[task.status] || TASK_STATUS_META.open;
-                    return (
-                      <div key={task.id} style={{
-                        border:"1px solid #f1f5f9",borderRadius:12,overflow:"hidden",
-                        background:"#fafbfc",transition:"box-shadow 0.2s",cursor:"pointer",
-                      }}
-                        onMouseEnter={e=>e.currentTarget.style.boxShadow="0 4px 16px rgba(0,0,0,.08)"}
-                        onMouseLeave={e=>e.currentTarget.style.boxShadow="none"}
-                      >
-                        {task.image && (
-                          <img src={task.image} alt={task.title} style={{width:"100%",height:80,objectFit:"cover"}}/>
-                        )}
-                        <div style={{padding:"12px 14px"}}>
-                          <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:8,marginBottom:6}}>
-                            <span style={{fontSize:13,fontWeight:700,color:"#0a0a0a",lineHeight:1.3,flex:1}}>{task.title}</span>
-                            <span style={{background:tm.bg,color:tm.color,padding:"2px 8px",borderRadius:20,fontSize:10.5,fontWeight:700,whiteSpace:"nowrap",flexShrink:0}}>{tm.label}</span>
-                          </div>
-                          <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-                            <span style={{background:"#f1f5f9",color:"#475569",padding:"2px 8px",borderRadius:20,fontSize:11,fontWeight:600}}>{task.category}</span>
-                            <span style={{fontSize:11.5,color:"#6b7280",display:"flex",alignItems:"center",gap:3}}>{Icon.clock} {task.date}</span>
-                            <span style={{fontSize:11.5,color:"#10b981",fontWeight:700,marginLeft:"auto"}}>{task.budget}</span>
-                          </div>
-                          <div style={{marginTop:8,fontSize:11.5,color:"#9ca3af"}}>
-                            <span style={{fontWeight:600,color:"#6b7280"}}>{task.applicants}</span> providers applied
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+
+                {loadingDash ? (
+                  /* Skeleton tasks */
+                  <div style={{display:"flex", flexDirection:"column", gap:10}}>
+                    {[1,2,3].map(i => (
+                      <div key={i} style={{
+                        height:90, borderRadius:12,
+                        background:"linear-gradient(90deg,#f1f5f9 25%,#e9edf2 50%,#f1f5f9 75%)",
+                        backgroundSize:"200% 100%",
+                        animation:"shimmer 1.4s ease-in-out infinite",
+                      }}/>
+                    ))}
+                  </div>
+                ) : appliedTasks.length === 0 ? (
+                  <div style={{
+                    flex:1, display:"flex", flexDirection:"column",
+                    alignItems:"center", justifyContent:"center",
+                    padding:"32px 16px", textAlign:"center",
+                  }}>
+                    <div style={{
+                      width:52, height:52, borderRadius:14,
+                      background:"#f1f5f9", display:"flex",
+                      alignItems:"center", justifyContent:"center", marginBottom:12,
+                    }}>
+                      {Icon.plus}
+                    </div>
+                    <p style={{fontSize:13.5, fontWeight:600, color:"#374151", marginBottom:4}}>No tasks yet</p>
+                    <p style={{fontSize:12, color:"#9ca3af", marginBottom:16}}>Post your first task and get offers from providers.</p>
+                    <button className="db-cta" style={{fontSize:12, padding:"8px 16px"}}
+                      onClick={() => setShowTaskModal(true)}
+                    >
+                      {Icon.plus} Post a Task
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{display:"flex", flexDirection:"column", gap:10, overflowY:"auto", maxHeight:380}}>
+                    {appliedTasks.map(task => <TaskCard key={task.id} task={task}/>)}
+                  </div>
+                )}
               </div>
             </div>
           </div>
         )}
-        {/* SAVED PROVIDERS */}
-        {tab === "saved" && (
+
+        {/* ══ MY TASKS (full view) ══ */}
+        {tab === "tasks" && (
           <div className="db-fade">
-            <div className="db-services-grid">
-              {SAVED_PROVIDERS.map(p => (
-                <div className="db-svc-card" key={p.id}>
-                  <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
-                    <div className="db-provider-avatar db-provider-avatar--lg">{p.name.split(" ").map(n=>n[0]).join("").slice(0,2)}</div>
-                    <div>
-                      <div className="db-svc-name">{p.name}</div>
-                      <span className="db-svc-cat">{p.category}</span>
-                    </div>
-                    <div style={{marginLeft:"auto",color:"#ef4444",cursor:"pointer"}}>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="#ef4444" stroke="#ef4444" strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-                    </div>
-                  </div>
-                  <div className="db-svc-stats">
-                    <div className="db-svc-stat"><span>★ {p.rating}</span><label>Rating</label></div>
-                    <div className="db-svc-stat"><span>{p.jobs}</span><label>Jobs Done</label></div>
-                    <div className="db-svc-stat"><span>{p.city}</span><label>City</label></div>
-                  </div>
-                  <RatingWidget providerId={p.id} providerName={p.name} />
-                </div>
-              ))}
+            <div style={{marginBottom:18, display:"flex", alignItems:"center", justifyContent:"space-between"}}>
+              <p style={{fontSize:13, color:"#6b7280"}}>
+                {loadingDash ? "Chargement…" : `${appliedTasks.length} tâche${appliedTasks.length !== 1 ? "s" : ""} publiée${appliedTasks.length !== 1 ? "s" : ""}`}
+              </p>
             </div>
+
+            {loadingDash ? (
+              <div style={{display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))", gap:16}}>
+                {[1,2,3,4,5,6].map(i => (
+                  <div key={i} style={{
+                    height:160, borderRadius:12,
+                    background:"linear-gradient(90deg,#f1f5f9 25%,#e9edf2 50%,#f1f5f9 75%)",
+                    backgroundSize:"200% 100%", animation:"shimmer 1.4s ease-in-out infinite",
+                  }}/>
+                ))}
+              </div>
+            ) : appliedTasks.length === 0 ? (
+              <div style={{
+                display:"flex", flexDirection:"column", alignItems:"center",
+                justifyContent:"center", padding:"60px 20px", textAlign:"center",
+                background:"#fff", borderRadius:16, border:"1px solid #f1f5f9",
+              }}>
+                <div style={{
+                  width:64, height:64, borderRadius:18,
+                  background:"#f1f5f9", display:"flex",
+                  alignItems:"center", justifyContent:"center", marginBottom:16,
+                }}>
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/>
+                  </svg>
+                </div>
+                <h3 style={{fontFamily:"'Sora',sans-serif", fontSize:16, fontWeight:700, color:"#0a0a0a", marginBottom:6}}>Aucune tâche publiée</h3>
+                <p style={{fontSize:13.5, color:"#6b7280", marginBottom:20, maxWidth:300}}>
+                  Publiez votre première tâche et recevez des offres de prestataires vérifiés.
+                </p>
+                <button className="db-cta" onClick={() => setShowTaskModal(true)}>{Icon.plus} Post a Task</button>
+              </div>
+            ) : (
+              <div style={{display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))", gap:16}}>
+                {appliedTasks.map(task => <TaskCard key={task.id} task={task}/>)}
+              </div>
+            )}
           </div>
         )}
-
-
       </main>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}} @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}`}</style>
     </div>
   );
 }
