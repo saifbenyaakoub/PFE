@@ -267,6 +267,10 @@
         flex: 1;
     }
 
+    .messages-area {
+        padding: 16px 12px;
+    }
+
     .mobile-hidden {
 display: none !important;
     }
@@ -314,7 +318,10 @@ display: none !important;
     flex-direction: column;
     align-items: center;
     width: 100%;
+    max-width: 100%;
     margin: 8px 0;
+    padding: 0 4px;
+    box-sizing: border-box;
 }
 
 .quotation-msg-time {
@@ -327,11 +334,12 @@ display: none !important;
 .quotation-card {
     position: relative;
     width: 100%;
-    max-width: 340px;
+    max-width: 400px;
     background: #ffffff;
     border-radius: 20px;
     padding: 0;
     overflow: hidden;
+    box-sizing: border-box;
     box-shadow:
         0 1px 2px rgba(0,0,0,0.04),
         0 6px 24px rgba(0,0,0,0.08),
@@ -373,7 +381,7 @@ display: none !important;
 
 /* ── Card inner content ── */
 .quotation-card-inner {
-    padding: 20px 22px 22px;
+    padding: 22px 26px 26px;
 }
 
 /* ── Header row ── */
@@ -431,12 +439,26 @@ display: none !important;
     color: #991b1b;
 }
 
+/* ── Duration row ── */
+.quotation-duration {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: #64748b;
+    margin-bottom: 16px;
+}
+
+.quotation-duration strong {
+    color: #334155;
+}
+
 /* ── Description ── */
 .quotation-description {
     font-size: 13.5px;
     color: #475569;
     line-height: 1.55;
-    margin-bottom: 16px;
+    margin-bottom: 12px;
 }
 
 /* ── Divider ── */
@@ -451,7 +473,7 @@ display: none !important;
     display: flex;
     align-items: baseline;
     gap: 6px;
-    margin-bottom: 18px;
+    margin-bottom: 22px;
 }
 
 .quotation-amount-label {
@@ -482,7 +504,7 @@ display: none !important;
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 8px;
-    margin-top: 4px;
+    margin-top: 8px;
 }
 
 .quotation-actions button {

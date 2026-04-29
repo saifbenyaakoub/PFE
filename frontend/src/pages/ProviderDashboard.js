@@ -998,7 +998,10 @@ export default function ProviderDashboard() {
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=DM+Sans:wght@400;500;600&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  .db-shell { display: flex; min-height: 100vh; background: #f8f9fc; font-family: 'DM Sans', sans-serif; }
+  body { font-family: 'DM Sans', sans-serif; }
+  .font-sora { font-family: 'Sora', sans-serif; }
+
+  .db-shell { display: flex; min-height: 100vh; background: #f8f9fc; }
   .db-sidebar { width: 230px; min-width: 230px; background: #0a0a0a; display: flex; flex-direction: column; padding: 24px 16px; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
   .db-brand { display: flex; align-items: center; gap: 10px; color: #fff; font-family: 'Sora', sans-serif; font-size: 18px; font-weight: 800; letter-spacing: 0.5px; padding: 4px 8px 24px; border-bottom: 1px solid rgba(255,255,255,0.07); margin-bottom: 20px; }
   .db-nav { display: flex; flex-direction: column; gap: 4px; flex: 1; }

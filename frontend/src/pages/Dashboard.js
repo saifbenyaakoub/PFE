@@ -2,11 +2,13 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { getSession } from "../lib/session";
 import ProviderDashboard from "./ProviderDashboard";
+import AdminDashboard from "./AdminDashboard";
 
 // ── Smart router ──────────────────────────────────────────────────────────────
 export default function Dashboard() {
   const session = getSession();
   const role    = session?.user?.role;
+  if (role === "admin") return <AdminDashboard />;
   if (role === "provider") return <ProviderDashboard />;
   return <ClientDashboard />;
 }
@@ -1083,9 +1085,12 @@ function ClientDashboard() {
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=DM+Sans:wght@400;500;600&display=swap');
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-  .db-shell{display:flex;min-height:100vh;background:#f8f9fc;font-family:'DM Sans',sans-serif}
+  body { font-family: 'DM Sans', sans-serif; }
+  .font-sora { font-family: 'Sora', sans-serif; }
+
+  .db-shell{display:flex;min-height:100vh;background:#f8f9fc}
   .db-sidebar{width:230px;min-width:230px;background:#0a0a0a;display:flex;flex-direction:column;padding:24px 16px;position:sticky;top:0;height:100vh;overflow-y:auto}
-  .db-brand{display:flex;align-items:center;gap:10px;color:#fff;font-family:'Sora',sans-serif;font-size:18px;font-weight:800;padding:4px 8px 24px;border-bottom:1px solid rgba(255,255,255,.07);margin-bottom:20px}
+  .db-brand{display:flex;align-items:center;gap:10px;color:#fff;font-family:'Sora',sans-serif;font-size:18px;font-weight:800;padding:4px 8px 24px;border-bottom:1px solid rgba(255,255,255,.07);margin-bottom:20px; font-family: 'Sora', sans-serif;}
   .db-nav{display:flex;flex-direction:column;gap:4px;flex:1}
   .db-nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;border:none;background:none;color:rgba(255,255,255,.5);font-family:'DM Sans',sans-serif;font-size:13.5px;font-weight:500;cursor:pointer;transition:all .15s;text-align:left;width:100%}
   .db-nav-item:hover{background:rgba(255,255,255,.07);color:rgba(255,255,255,.85)}

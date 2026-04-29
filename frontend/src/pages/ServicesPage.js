@@ -4,11 +4,34 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faHammer, faWrench, faRuler, faPaintBrush, faFaucet, faSprayCan, faTaxi ,faCar,
   faBroom,faLeaf,faBox,faGear, faStar,
-  faLocationDot,
+  faLocationDot, faXmark, faCheckCircle, faUser,
 } from '@fortawesome/free-solid-svg-icons';
 import { getSession } from "../lib/session";
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+import L from "leaflet";
 import "./services.css"
 import ServicesFilter from "./ServicesFilter";
+
+const governorateCoordinates = {
+  "Tunis": [36.8065, 10.1815], "Ariana": [36.8665, 10.1647], "Ben Arous": [36.746, 10.228],
+  "Manouba": [36.808, 10.096], "Nabeul": [36.456, 10.735], "Zaghouan": [36.403, 10.144],
+  "Bizerte": [37.2744, 9.8739], "Béja": [36.7256, 9.1817], "Jendouba": [36.501, 8.780],
+  "Kef": [36.174, 8.704], "Siliana": [36.083, 9.367], "Kairouan": [35.678, 10.096],
+  "Kasserine": [35.167, 8.833], "Sidi Bouzid": [35.033, 9.500], "Sousse": [35.825, 10.641],
+  "Monastir": [35.765, 10.826], "Mahdia": [35.504, 11.062], "Sfax": [34.740, 10.760],
+  "Gafsa": [34.425, 8.784], "Tozeur": [33.919, 8.134], "Kebili": [33.705, 8.969],
+  "Gabès": [33.881, 10.098], "Medenine": [33.355, 10.505], "Tataouine": [32.930, 10.451]
+};
+
+const locationIcon = L.divIcon({
+  html: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512" style="width: 40px; height: 40px; fill: #d32f2f; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3));"><path d="M215.7 499.2C267 435 384 279.4 384 192C384 86 298 0 192 0S0 86 0 192c0 87.4 117 243 168.3 307.2c12.3 15.3 35.1 15.3 47.4 0zM192 128a64 64 0 1 1 0 128 64 64 0 1 1 0-128z"/></svg>`,
+  className: 'custom-map-marker',
+  iconSize: [40, 40],
+  iconAnchor: [20, 40],
+  popupAnchor: [0, -40]
+});
+
 function ServicesPage() {
   const [items, setItems] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -17,6 +40,12 @@ function ServicesPage() {
 
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get('category') || "");
   const [selectedCity, setSelectedCity] = useState(searchParams.get('city') || "");
+
+  // Modal & Booking State
+  const [selectedService, setSelectedService] = useState(null);
+
+  const today = new Date();
+  const minDate = today.toISOString().split('T')[0];
 
   const getInitials = (name = '') => name.trim().split(/\s+/).map(n => n[0]).join('').toUpperCase().slice(0, 2) || '?';
 
@@ -71,11 +100,32 @@ function ServicesPage() {
     setSearchParams(params, { replace: true });
   }, [selectedCategory, selectedCity, setSearchParams]);
 
-  const handleAction = (item) => {
+  const handleAction = async (item) => {
     const session = getSession();
     if (session) {
       if (item && item.id) {
-        navigate(`/bookingService/${item.id}`);
+        if (session.user.role === "client" && item.provider_id) {
+          try {
+            const response = await fetch("http://localhost:5000/chat/start", {
+              method: "POST",
+              headers: { 
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${session.token}`
+              },
+              body: JSON.stringify({
+                userId: session.user.id,
+                partnerId: item.provider_id
+              }),
+            });
+            if (response.ok) {
+              navigate("/chat");
+              return;
+            }
+          } catch (err) {
+            console.error("Failed to start conversation", err);
+          }
+        }
+        setSelectedService(item);
       } else {
         console.error("Service ID is missing", item);
       }
@@ -156,8 +206,20 @@ function ServicesPage() {
     <div className="grid gap-6">
       {filteredItems.map((item, index) => {
         const initials = getInitials(item.provider_name);
+        const itemPosition = item.latitude && item.longitude 
+          ? [item.latitude, item.longitude] 
+          : (item.city && governorateCoordinates[item.city] ? governorateCoordinates[item.city] : [36.8065, 10.1815]);
+
         return (
-          <div key={item.id || index} className="group flex flex-col md:flex-row items-stretch bg-white rounded-3xl border border-gray-100 shadow-[0_2px_12px_rgb(0,0,0,0.04)] hover:shadow-[0_12px_32px_rgb(0,0,0,0.08)] transition-all duration-300 overflow-hidden hover:border-[#0d276f]/30">
+          <div 
+            key={item.id || index} 
+            onClick={() => { 
+              if (getSession()) {
+                setSelectedService(item); 
+              } else { navigate('/sign-in'); }
+            }} 
+            className="group flex flex-col md:flex-row items-stretch bg-white rounded-3xl border border-gray-100 shadow-[0_2px_12px_rgb(0,0,0,0.04)] hover:shadow-[0_12px_32px_rgb(0,0,0,0.08)] transition-all duration-300 overflow-hidden hover:border-[#0d276f]/30 cursor-pointer"
+          >
             {/* Main Content */}
             <div className="flex flex-col sm:flex-row items-start gap-6 p-6 flex-grow">
               {/* Avatar */}
@@ -207,7 +269,10 @@ function ServicesPage() {
               )}
               <button
                 className="w-full py-3 px-4 rounded-xl bg-gray-900 text-white font-semibold text-sm shadow-lg shadow-gray-900/10 hover:bg-[#0d276f] hover:shadow-[#0d276f]/20 active:scale-[0.98] transition-all duration-200 mt-auto"
-                onClick={() => handleAction(item)}
+                onClick={(e) => { 
+                  e.stopPropagation(); 
+                  handleAction(item); 
+                }}
               >
                 Book Now
               </button>
@@ -217,6 +282,81 @@ function ServicesPage() {
       })}
     </div>
   </main>
+
+  {/* Booking Modal (Content from BookingService.js) */}
+  {selectedService && (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+      <div className="bg-white rounded-[2.5rem] w-full max-w-5xl shadow-2xl relative flex flex-col md:flex-row overflow-hidden max-h-[95vh]">
+        <button 
+          onClick={() => setSelectedService(null)}
+          className="absolute top-6 right-6 z-[110] bg-white/80 hover:bg-white p-2 rounded-full shadow-md transition-all border border-gray-100"
+        >
+          <FontAwesomeIcon icon={faXmark} className="w-5 h-5 text-gray-800" />
+        </button>
+
+        {/* Left Section: Service Info & Map */}
+        <div className="flex-1 p-8 md:p-12 overflow-y-auto custom-scrollbar">
+          <div className="rounded-3xl overflow-hidden shadow-inner bg-gray-100 mb-8 border border-gray-100 h-80">
+            <MapContainer 
+              center={selectedService.latitude && selectedService.longitude ? [selectedService.latitude, selectedService.longitude] : (selectedService.city && governorateCoordinates[selectedService.city] ? governorateCoordinates[selectedService.city] : [36.8065, 10.1815])} 
+              zoom={13} 
+              style={{ height: '100%', width: '100%' }}
+            >
+              <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+              <Marker 
+                position={selectedService.latitude && selectedService.longitude ? [selectedService.latitude, selectedService.longitude] : (selectedService.city && governorateCoordinates[selectedService.city] ? governorateCoordinates[selectedService.city] : [36.8065, 10.1815])} 
+                icon={locationIcon}
+              >
+                <Popup>{selectedService.title}</Popup>
+              </Marker>
+            </MapContainer>
+          </div>
+
+          <div className="space-y-4">
+            <span className="px-4 py-1.5 bg-blue-50 text-blue-700 rounded-full text-xs font-bold uppercase tracking-wider">{selectedService.category}</span>
+            <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">{selectedService.title}</h2>
+            
+            <div className="flex flex-wrap gap-6 items-center text-sm text-gray-500 font-medium">
+              <div className="flex items-center gap-2">
+                <FontAwesomeIcon icon={faUser} className="text-blue-500" />
+                <span>Offered by {selectedService.provider_name}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <FontAwesomeIcon icon={faLocationDot} className="text-red-500" />
+                <span>{selectedService.city}</span>
+              </div>
+            </div>
+            
+            <div className="prose prose-sm max-w-none text-gray-600 leading-relaxed pt-4 border-t border-gray-100">
+              <p>{selectedService.description}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Section: Action */}
+        <div className="md:w-[22rem] bg-gray-50/80 p-8 md:p-10 border-l border-gray-100 flex flex-col shrink-0">
+          <h3 className="text-xl font-bold text-gray-900 mb-2">Book This Service</h3>
+          <p className="text-sm text-gray-500 mb-8 font-medium">Confirm your interest</p>
+
+          <div className="space-y-6">
+            <button 
+              onClick={() => handleAction(selectedService)}
+              className="w-full py-4 bg-gray-900 text-white rounded-2xl font-bold text-sm shadow-xl shadow-gray-900/20 hover:bg-[#0d276f] active:scale-[0.98] transition-all flex items-center justify-center gap-2 mt-4 disabled:opacity-70 disabled:cursor-not-allowed"
+            >
+              <FontAwesomeIcon icon={faCheckCircle} />
+              Book Now
+            </button>
+
+            <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100/50 mt-4">
+              <p className="text-[11px] text-blue-600 font-semibold leading-relaxed text-center">
+                The provider will be notified. You can communicate via chat once they review your request.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )}
 </div>
 
     </section>

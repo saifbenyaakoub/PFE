@@ -1,27 +1,41 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Button, Card, Divider, Input, Label } from "../components/ui";
+import { Button, Card, Divider, ErrorText, Input, Label } from "../components/ui";
 import { signIn } from "../lib/authApi";
 import { saveSession } from "../lib/session";
 import { Eye, EyeOff } from "lucide-react";
 export default function SignIn() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState("client@demo.com");
-  const [password, setPassword] = useState("demo123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
 async function onSubmit(e) {
   e.preventDefault();
+  setError("");
   setLoading(true);
   try {
     const session = await signIn({ email, password });
     saveSession(session);
 
     window.dispatchEvent(new Event('session:updated'));
-    navigate(session.user.role === "provider" ? "/provider" : "/client", { replace: true });
+
+    const role = session.user.role;
+    if (role === "admin") {
+      navigate("/dashboard", { replace: true });
+    } else if (role === "provider") {
+      navigate("/provider", { replace: true });
+    } else {
+      navigate("/client", { replace: true });
+    }
+
+    console.log("Login successful:", session)
   } catch (err) {
-  
+    const backendError = err.response?.data?.error || err.response?.data?.message || err.message;
+    console.error("Sign in failed:", backendError);
+    setError(backendError);
   } finally {
     setLoading(false);
   }
@@ -43,6 +57,7 @@ async function onSubmit(e) {
           <Input
             id="email"
             type="email"
+            value={email}
             placeholder="Enter your Email"
             onChange={(e) => setEmail(e.target.value)}
             autoComplete="email"
@@ -59,6 +74,7 @@ async function onSubmit(e) {
             <Input
               id="password"
               type={show ? "text" : "password"}
+              value={password}
               placeholder="Enter your password"
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="current-password"
@@ -74,6 +90,8 @@ async function onSubmit(e) {
             </button>
           </div>
         </div>
+
+        <ErrorText>{error}</ErrorText>
 
         <Button loading={loading} disabled={loading}>
           Sign in

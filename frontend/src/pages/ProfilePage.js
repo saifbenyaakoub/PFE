@@ -174,6 +174,7 @@ function ProfilePage() {
             name:         formData.name,
             latitude:     formData.latitude,
             longitude:    formData.longitude,
+            categories:   isProvider ? formData.categories : [],
             profileImage: filename,
           }
         });
@@ -428,6 +429,9 @@ const STYLES = `
 
   *, *::before, *::after { box-sizing: border-box; }
 
+  body { font-family: 'DM Sans', sans-serif; }
+  .font-sora { font-family: 'Sora', sans-serif; }
+
   /* ── Shell ─────────────────────────────────────── */
   .profile-shell {
     min-height: 100vh;
@@ -437,7 +441,6 @@ const STYLES = `
     align-items: center;
     justify-content: flex-start;
     padding: 40px 16px 60px;
-    font-family: 'DM Sans', sans-serif;
   }
   .profile-shell--loading {
     justify-content: center;

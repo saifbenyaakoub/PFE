@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import "./home.css";
 import { FaBroom, FaWrench, FaLeaf, FaBox, FaShieldAlt, FaStar, FaCheckCircle, FaUsers, FaArrowRight} from "react-icons/fa";
 import { FaGear } from 'react-icons/fa6';
+import { getSession } from "../lib/session";
 
 function HomePage() {
   const [activeIndex, setActiveIndex] = useState(0);
@@ -52,12 +53,24 @@ const slideImages = [
 ];
 
   useEffect(() => {
+    const session = getSession();
+    if (session?.user?.role === 'admin') {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [navigate]);
+
+  useEffect(() => {
     const interval = setInterval(() => {
       setActiveIndex(prevIndex => (prevIndex + 1) % categories.length);
     }, 4000);
 
     return () => clearInterval(interval);
   }, [categories.length]);
+
+  const handleExplore = () => {
+    const session = getSession();
+    navigate(session ? '/services' : '/sign-in');
+  };
 
   return (
 
@@ -69,7 +82,7 @@ const slideImages = [
             Find reliable professionals for your daily needs. From cleaning to
             handyman services, we've got you covered.
           </p>
-          <button className="cta-button hero-cta" onClick={() => navigate('/services')}>
+          <button className="cta-button hero-cta" onClick={handleExplore}>
             Explore Services <FaArrowRight />
           </button>
         </div>
@@ -94,7 +107,14 @@ const slideImages = [
             <div
               key={index}
               className={`category-card ${index === activeIndex ? 'active' : ''}`}
-              onClick={() => navigate(`/services?category=${cat.name}`)}
+              onClick={() => {
+                const session = getSession();
+                if (session) {
+                  navigate(`/services?category=${cat.name}`);
+                } else {
+                  navigate('/sign-in');
+                }
+              }}
               onMouseEnter={() => setActiveIndex(index)}
             >
               <div className={`icon ${cat.colorClass}`}>{cat.icon}</div>
@@ -135,7 +155,7 @@ const slideImages = [
         Join thousands of satisfied customers and providers on FixHub today.
       </p>
 
-      <button className="cta-button" onClick={() => navigate('/services')}>
+      <button className="cta-button" onClick={handleExplore}>
         Find a Service Provider <FaArrowRight />
       </button>
     </section>
