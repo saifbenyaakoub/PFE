@@ -14,6 +14,13 @@ function Navbar() {
   const [isNotifsOpen, setIsNotifsOpen]     = useState(false);
   const [session, setSession]               = useState(() => getSession());
   const dropdownRef                         = useRef(null);
+
+  const resolveImage = (img) => {
+    if (!img) return null;
+    if (img.startsWith("http") || img.startsWith("blob:") || img.startsWith("data:")) return img;
+    return `http://localhost:5000/uploads/${img}`;
+  };
+
   const notifsRef                           = useRef(null);
   const navigate                            = useNavigate();
   const socketRef                           = useRef(null);
@@ -206,8 +213,8 @@ function Navbar() {
 
               {/* User Avatar & Dropdown Trigger */}
               <button className="nav-user-trigger" onClick={toggleDropdown}>
-                {user?.profileImage ? (
-                  <img src={user.profileImage} alt={name} className="nav-avatar-img" />
+                {resolveImage(user?.profileImage) ? (
+                  <img src={resolveImage(user.profileImage)} alt={name} className="nav-avatar-img" />
                 ) : (
                   <div className="nav-avatar-initials">{initials}</div>
                 )}
@@ -221,8 +228,8 @@ function Navbar() {
               {isDropdownOpen && (
                 <div className="nav-dropdown">
                   <div className="nav-dropdown-header">
-                    {user?.profileImage ? (
-                      <img src={user.profileImage} alt={name} className="nav-dropdown-avatar" />
+                    {resolveImage(user?.profileImage) ? (
+                      <img src={resolveImage(user.profileImage)} alt={name} className="nav-dropdown-avatar" />
                     ) : (
                       <div className="nav-dropdown-initials">{initials}</div>
                     )}

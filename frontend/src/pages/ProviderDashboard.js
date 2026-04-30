@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import ChatPage from "./Chat";
 import { useNavigate } from "react-router-dom";
 import { getSession } from "../lib/session";
 import StatusDropdown from './StatusDropdown';
@@ -524,7 +525,6 @@ export default function ProviderDashboard() {
   };
 
   const handleDeleteService = async (serviceId) => {
-    if (!window.confirm("Remove this service?")) return;
     try {
       await fetch(`${API}/services/${serviceId}`, {
         method: "DELETE",
@@ -582,10 +582,11 @@ export default function ProviderDashboard() {
   const recentReviews = reviews.slice(0, 3);
 
   const TABS = [
-    { id: "overview", label: "Overview", icon: Icon.grid },
-    { id: "calendar", label: "Calendar", icon: Icon.calendar },
-    { id: "services", label: "Services", icon: Icon.briefcase },
-    { id: "reviews", label: "Reviews", icon: Icon.star },
+    { id: "overview",  label: "Overview",  icon: Icon.grid      },
+    { id: "calendar",  label: "Calendar",  icon: Icon.calendar  },
+    { id: "services",  label: "Services",  icon: Icon.briefcase },
+    { id: "reviews",   label: "Reviews",   icon: Icon.star      },
+    { id: "messages",  label: "Messages",  icon: Icon.msg       },
   ];
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -988,6 +989,13 @@ export default function ProviderDashboard() {
             )}
           </div>
         )}
+
+      {/* ── MESSAGES ── */}
+      {tab === "messages" && (
+        <div className="db-fade">
+          <ChatPage />
+        </div>
+      )}
 
       </main>
     </div>
