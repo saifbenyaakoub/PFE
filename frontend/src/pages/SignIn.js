@@ -22,15 +22,7 @@ async function onSubmit(e) {
 
     window.dispatchEvent(new Event('session:updated'));
 
-    const role = session.user.role;
-    if (role === "admin") {
-      navigate("/dashboard", { replace: true });
-    } else if (role === "provider") {
-      navigate("/provider", { replace: true });
-    } else {
-      navigate("/client", { replace: true });
-    }
-
+    navigate("/Dashboard", { replace: true });
     console.log("Login successful:", session)
   } catch (err) {
     const backendError = err.response?.data?.error || err.response?.data?.message || err.message;

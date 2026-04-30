@@ -254,7 +254,7 @@ export default function Chat() {
 
   // ── PDF ───────────────────────────────────────────────────────────────────
 
-  const generateInvoicePDF = (data, msg, isInvoice = true) => {
+  const generateQuotationPDF = (data, msg) => {
   const doc = new jsPDF({
     orientation: "portrait",
     unit: "mm",
@@ -263,8 +263,12 @@ export default function Chat() {
 
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const title = isInvoice ? "INVOICE" : "QUOTATION";
+  const title = "Devis";
   const accentR = 9, accentG = 104, accentB = 72; 
+
+  const isOwn = String(msg.sender_id) === String(session.user?.id);
+  const senderName = isOwn ? (session.user?.name || "Provider") : (currentChat?.other_user_name || "Provider");
+  const receiverName = isOwn ? (currentChat?.other_user_name || "Client") : (session.user?.name || "Client");
 
   // ── HEADER BACKGROUND BLOCK ──────────────────────────────────────────────
   doc.setFillColor(15, 15, 25);
@@ -284,8 +288,8 @@ export default function Chat() {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.setTextColor(160, 160, 185);
-  doc.text("123 FixHub Street, Tunis, Tunisia", 14, 30);
-  doc.text("contact@fixhub.com  ·  +216 12 345 678", 14, 35);
+  doc.text("Tunis, Tunisia", 14, 30);
+  doc.text("contact@fixhub.com  ·  +216 92 992 297", 14, 35);
 
   // ── TITLE BLOCK (right side) ──────────────────────────────────────────────
   doc.setFont("helvetica", "bold");
@@ -296,10 +300,10 @@ export default function Chat() {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8.5);
   doc.setTextColor(160, 160, 185);
-  const docNum = `${isInvoice ? "INV" : "QUT"}-${String(msg.id).padStart(5, "0")}`;
+  const docNum = `N°${String(msg.id).padStart(5, "0")}`;
   doc.text(docNum, pageWidth - 14, 30, { align: "right" });
   doc.text(
-    `Issued: ${new Date(msg.created_at).toLocaleDateString("en-GB", {
+    `Délivré : ${new Date(msg.created_at).toLocaleDateString("en-GB", {
       day: "2-digit", month: "short", year: "numeric",
     })}`,
     pageWidth - 14, 35, { align: "right" }
@@ -311,20 +315,24 @@ export default function Chat() {
   doc.rect(0, stripY, pageWidth, 22, "F");
 
   const metaItems = [
+    ["De",       senderName],
+    ["Vers",         receiverName],
     ["START DATE", data.startDate],
     ["DURATION",   data.duration],
   ];
 
   metaItems.forEach(([label, value], i) => {
-    const x = 14 + i * 62;
+    const x = 14 + i * 46;
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(6.5);
+    doc.setFontSize(9);
     doc.setTextColor(accentR, accentG, accentB);
     doc.text(label, x, stripY + 7);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(9.5);
+    doc.setFontSize(9);
+    doc.setFontSize(9);
     doc.setTextColor(20, 20, 40);
     doc.text(String(value), x, stripY + 15);
+    doc.text(String(value || "—"), x, stripY + 15, { maxWidth: 42 });
   });
 
   // ── ITEMS TABLE ───────────────────────────────────────────────────────────
@@ -398,6 +406,17 @@ export default function Chat() {
   doc.setTextColor(255, 255, 255);
   doc.text(totalText, pillX + pillW / 2, pillY + 11.5, { align: "center" });
 
+  // ── SIGNATURE BLOCK ───────────────────────────────────────────────────────
+  const sigY = pageHeight - 45;
+  doc.setDrawColor(200, 200, 200);
+  doc.setLineWidth(0.4);
+  doc.line(14, sigY, 74, sigY);
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.setTextColor(120, 120, 140);
+  doc.text("CLIENT SIGNATURE", 14, sigY + 5);
+
   // ── FOOTER ────────────────────────────────────────────────────────────────
   doc.setFillColor(15, 15, 25);
   doc.rect(0, pageHeight - 20, pageWidth, 20, "F");
@@ -409,15 +428,13 @@ export default function Chat() {
   doc.setFontSize(8.5);
   doc.setTextColor(160, 160, 185);
   doc.text(
-    isInvoice
-      ? "Thank you for your business — payment due within 14 days."
-      : "",
+    "",
     pageWidth / 2,
     pageHeight - 9,
     { align: "center" }
   );
 
-  doc.save(isInvoice ? `invoice-${msg.id}.pdf` : `quotation-${msg.id}.pdf`);
+  doc.save(`quotation-${msg.id}.pdf`);
 };
 
   // ── render message ────────────────────────────────────────────────────────
@@ -505,9 +522,9 @@ export default function Chat() {
               )}
 
               {(data.status === "accepted" || (data.status === "pending" && isClient)) && (
-                <button onClick={() => generateInvoicePDF(data, msg, data.status === "accepted")} className="btn-download-pdf">
+                <button onClick={() => generateQuotationPDF(data, msg)} className="btn-download-pdf">
                   <FaFilePdf size={12} />
-                  {data.status === "accepted" ? "Download Invoice" : "View Quotation"}
+                  {data.status === "accepted" ? "Download Quotation" : "View Quotation"}
                 </button>
               )}
             </div>
@@ -523,15 +540,19 @@ export default function Chat() {
   if (!session) return <div className="chat-container">Please sign in.</div>;
 
   function getLastMessage(lastMessage) {
-    try {
-      const parsed = JSON.parse(lastMessage);
-      if (parsed.type === "quotation") {
-        const count = parsed.items?.length ?? 1;
-        return `Quotation: ${count} item(s) — ${parsed.amount} TND (${parsed.status})`;
-      }
-      return lastMessage;
-    } catch (e) { return lastMessage; }
+  if (!lastMessage) return "No messages yet";
+  try {
+    const parsed = JSON.parse(lastMessage);
+    if (parsed.type === "quotation") {
+      const statusEmoji = parsed.status === "accepted" ? "✅" : parsed.status === "declined" ? "❌" : "⏳";
+      const count = parsed.items?.length ?? 1;
+      return `${statusEmoji} Quotation: ${count} item(s) — ${parseFloat(parsed.amount).toFixed(2)} TND`;
+    }
+    return lastMessage;
+  } catch (e) {
+    return lastMessage;
   }
+}
 
   // ── render ────────────────────────────────────────────────────────────────
 

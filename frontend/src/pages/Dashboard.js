@@ -58,6 +58,8 @@ const StatusBadge = ({ status }) => {
   return <span style={{ background:m.bg, color:m.color, padding:"3px 10px", borderRadius:20, fontSize:11, fontWeight:700, whiteSpace:"nowrap" }}>{m.label}</span>;
 };
 
+const ENDPOINT = "http://localhost:5000";
+
 
 // ── PostTaskModal ─────────────────────────────────────────────────────────────
 const TASK_CATEGORIES = [
@@ -479,11 +481,19 @@ function PostTaskModal({ onClose, session }) {
 }
 
 // ── FixHub Assistant Chatbot ──────────────────────────────────────────────────
+const SUGGESTIONS = [
+  "🔍 Recommend me a provider in Tunis",
+  "📋 Explain my latest quotation",
+  "⭐ Who has the best ratings for painting?",
+  "📅 What have I booked before?",
+];
+
 function RecommendationBot({ navigate }) {
+  const session = getSession();
   const [messages, setMessages] = useState([
-    { role: "assistant", content: "👋 Bonjour ! Je suis **FixHub Assistant**. Comment puis-je vous aider aujourd'hui ? Vous pouvez me poser des questions sur nos services, la réservation, ou la publication de tâches." }
+    { role: "assistant", content: "👋 Hi! I'm your **FixHub Assistant**. I can recommend service providers or explain your quotations. How can I help?" }
   ]);
-  const [input, setInput]   = useState("");
+  const [input,   setInput]   = useState("");
   const [loading, setLoading] = useState(false);
   const bottomRef = React.useRef(null);
 
@@ -491,30 +501,32 @@ function RecommendationBot({ navigate }) {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
-  const sendMessage = async () => {
-    const text = input.trim();
-    if (!text || loading) return;
-    const newMessages = [...messages, { role: "user", content: text }];
-    setMessages(newMessages);
+  const sendMessage = async (text) => {
+    const userText = (text || input).trim();
+    if (!userText || loading) return;
+
+    setMessages(prev => [...prev, { role: "user", content: userText }]);
     setInput("");
     setLoading(true);
 
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
+      const res = await fetch(`${ENDPOINT}/ai/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1000,
-          system: "You are FixHub Assistant, a helpful customer support chatbot for FixHub — a platform connecting clients with home service providers (plumbing, electrical, cleaning, painting, carpentry, etc.) in Tunisia. Answer clearly and concisely in the same language the user writes in (French or English). Help users with booking services, posting tasks, understanding pricing, finding providers, and general platform questions. Keep responses friendly, short, and practical.",
-          messages: newMessages.map(m => ({ role: m.role, content: m.content })),
+          message: userText,
+          userId:  session?.user?.id,
         }),
       });
-      const data = await res.json();
-      const reply = data.content?.map(b => b.text || "").join("") || "Je n'ai pas pu répondre, veuillez réessayer.";
+      console.log("AI response status:", res.status);
+      const data  = await res.json();
+      console.log("AI response data:", data);
+console.log("GEMINI_API_KEY loaded:", !!process.env.GEMINI_API_KEY);
+console.log("KEY EXISTS:", !!process.env.GEMINI_API_KEY);
+      const reply = data.reply || "Sorry, I couldn't get a response.";
       setMessages(prev => [...prev, { role: "assistant", content: reply }]);
     } catch {
-      setMessages(prev => [...prev, { role: "assistant", content: "⚠️ Erreur de connexion. Veuillez réessayer." }]);
+      setMessages(prev => [...prev, { role: "assistant", content: "⚠️ Connection error. Please try again." }]);
     } finally {
       setLoading(false);
     }
@@ -524,106 +536,130 @@ function RecommendationBot({ navigate }) {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   };
 
-  // Simple markdown bold renderer
+  // Renders **bold** markdown
   const renderText = (text) => {
     const parts = text.split(/(\*\*[^*]+\*\*)/g);
     return parts.map((p, i) =>
       p.startsWith("**") && p.endsWith("**")
-        ? <strong key={i} style={{fontWeight:700}}>{p.slice(2,-2)}</strong>
+        ? <strong key={i} style={{ fontWeight: 700 }}>{p.slice(2, -2)}</strong>
         : p
     );
   };
 
+  const showSuggestions = messages.length === 1;
+
   return (
-    <div className="db-card db-bot-card" style={{padding:0,display:"flex",flexDirection:"column",height:420}}>
+    <div className="db-card db-bot-card" style={{ padding: 0, display: "flex", flexDirection: "column", height: 440 }}>
+
       {/* Header */}
-      <div className="db-bot-header" style={{padding:"16px 18px",borderBottom:"1px solid #f1f5f9",flexShrink:0}}>
-        <div className="db-bot-avatar" style={{background:"#0a0a0a"}}>
-          {/* Tools icon */}
+      <div className="db-bot-header" style={{ padding: "14px 18px", borderBottom: "1px solid #f1f5f9", flexShrink: 0 }}>
+        <div className="db-bot-avatar" style={{ background: "#0a0a0a" }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
           </svg>
         </div>
         <div>
           <span className="db-bot-name">FixHub Assistant</span>
-          <span className="db-bot-status">● En ligne</span>
+          <span className="db-bot-status">● Powered by Gemini</span>
         </div>
         <button
-          style={{marginLeft:"auto",background:"none",border:"none",fontSize:11.5,color:"#9ca3af",cursor:"pointer",fontWeight:600,padding:"4px 8px",borderRadius:6,transition:"background 0.15s"}}
-          onClick={() => setMessages([{ role:"assistant", content:"👋 Bonjour ! Je suis **FixHub Assistant**. Comment puis-je vous aider aujourd'hui ?" }])}
-          onMouseEnter={e=>e.currentTarget.style.background="#f1f5f9"}
-          onMouseLeave={e=>e.currentTarget.style.background="none"}
-        >Effacer</button>
+          style={{ marginLeft: "auto", background: "none", border: "none", fontSize: 11.5, color: "#9ca3af", cursor: "pointer", fontWeight: 600, padding: "4px 8px", borderRadius: 6, transition: "background 0.15s" }}
+          onClick={() => setMessages([{ role: "assistant", content: "👋 Hi! I'm your **FixHub Assistant**. How can I help?" }])}
+          onMouseEnter={e => e.currentTarget.style.background = "#f1f5f9"}
+          onMouseLeave={e => e.currentTarget.style.background = "none"}
+        >
+          Clear
+        </button>
       </div>
 
       {/* Messages */}
-      <div style={{flex:1,overflowY:"auto",padding:"16px 18px",display:"flex",flexDirection:"column",gap:12}}>
+      <div style={{ flex: 1, overflowY: "auto", padding: "14px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
         {messages.map((m, i) => (
-          <div key={i} style={{display:"flex",justifyContent: m.role==="user" ? "flex-end" : "flex-start"}}>
+          <div key={i} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start", gap: 8 }}>
             {m.role === "assistant" && (
-              <div style={{width:26,height:26,borderRadius:8,background:"#0a0a0a",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginRight:8,marginTop:2}}>
+              <div style={{ width: 26, height: 26, borderRadius: 8, background: "#0a0a0a", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2 }}>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
                 </svg>
               </div>
             )}
             <div style={{
-              maxWidth:"78%",
-              background: m.role==="user" ? "#0a0a0a" : "#f0f7ff",
-              color: m.role==="user" ? "#fff" : "#1e40af",
-              borderRadius: m.role==="user" ? "12px 12px 2px 12px" : "2px 12px 12px 12px",
-              padding:"9px 13px",
-              fontSize:13,
-              lineHeight:1.55,
-              border: m.role==="user" ? "none" : "1px solid #dbeafe",
+              maxWidth: "80%",
+              background: m.role === "user" ? "#0a0a0a" : "#f0f7ff",
+              color: m.role === "user" ? "#fff" : "#1e40af",
+              borderRadius: m.role === "user" ? "12px 12px 2px 12px" : "2px 12px 12px 12px",
+              padding: "9px 13px", fontSize: 13, lineHeight: 1.55,
+              border: m.role === "user" ? "none" : "1px solid #dbeafe",
+              whiteSpace: "pre-wrap",
             }}>
               {renderText(m.content)}
             </div>
           </div>
         ))}
+
+        {/* Typing indicator */}
         {loading && (
-          <div style={{display:"flex",alignItems:"center",gap:8}}>
-            <div style={{width:26,height:26,borderRadius:8,background:"#0a0a0a",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ width: 26, height: 26, borderRadius: 8, background: "#0a0a0a", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+              </svg>
             </div>
-            <div style={{background:"#f0f7ff",border:"1px solid #dbeafe",borderRadius:"2px 12px 12px 12px",padding:"9px 13px",display:"flex",gap:4,alignItems:"center"}}>
-              {[0,1,2].map(n=>(
-                <div key={n} style={{width:6,height:6,borderRadius:"50%",background:"#93c5fd",animation:"botPulse 1.2s ease-in-out infinite",animationDelay:`${n*0.2}s`}}/>
+            <div style={{ background: "#f0f7ff", border: "1px solid #dbeafe", borderRadius: "2px 12px 12px 12px", padding: "9px 13px", display: "flex", gap: 4, alignItems: "center" }}>
+              {[0, 1, 2].map(n => (
+                <div key={n} style={{ width: 6, height: 6, borderRadius: "50%", background: "#93c5fd", animation: "botPulse 1.2s ease-in-out infinite", animationDelay: `${n * 0.2}s` }} />
               ))}
             </div>
           </div>
         )}
-        <div ref={bottomRef}/>
+        <div ref={bottomRef} />
       </div>
 
+      {/* Quick suggestion buttons — only before first message */}
+      {showSuggestions && (
+        <div style={{ padding: "0 18px 10px", display: "flex", flexWrap: "wrap", gap: 6 }}>
+          {SUGGESTIONS.map((s, i) => (
+            <button key={i} onClick={() => sendMessage(s)} style={{
+              fontSize: 11.5, padding: "5px 10px", borderRadius: 20,
+              border: "1px solid #dbeafe", color: "#1e40af",
+              background: "#f0f7ff", cursor: "pointer",
+              fontFamily: "'DM Sans', sans-serif", transition: "background 0.15s",
+            }}
+              onMouseEnter={e => e.currentTarget.style.background = "#dbeafe"}
+              onMouseLeave={e => e.currentTarget.style.background = "#f0f7ff"}
+            >{s}</button>
+          ))}
+        </div>
+      )}
+
       {/* Input */}
-      <div style={{padding:"12px 18px",borderTop:"1px solid #f1f5f9",display:"flex",gap:8,flexShrink:0}}>
+      <div style={{ padding: "10px 18px 14px", borderTop: "1px solid #f1f5f9", display: "flex", gap: 8, flexShrink: 0 }}>
         <input
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Posez votre question…"
+          placeholder="Ask about providers or your quotations…"
           disabled={loading}
           style={{
-            flex:1,padding:"9px 13px",borderRadius:10,
-            border:"1.5px solid #e5e7eb",fontSize:13,
-            fontFamily:"'DM Sans',sans-serif",outline:"none",
-            color:"#0a0a0a",transition:"border-color 0.15s",
+            flex: 1, padding: "9px 13px", borderRadius: 10,
+            border: "1.5px solid #e5e7eb", fontSize: 13,
+            fontFamily: "'DM Sans', sans-serif", outline: "none",
+            color: "#0a0a0a", transition: "border-color 0.15s",
             background: loading ? "#f9fafb" : "#fff",
           }}
-          onFocus={e=>e.target.style.borderColor="#0ea5e9"}
-          onBlur={e=>e.target.style.borderColor="#e5e7eb"}
+          onFocus={e => e.target.style.borderColor = "#0ea5e9"}
+          onBlur={e => e.target.style.borderColor = "#e5e7eb"}
         />
         <button
-          onClick={sendMessage}
+          onClick={() => sendMessage()}
           disabled={!input.trim() || loading}
           style={{
-            width:38,height:38,borderRadius:10,border:"none",
+            width: 38, height: 38, borderRadius: 10, border: "none",
             background: input.trim() && !loading ? "#0a0a0a" : "#e5e7eb",
             color: input.trim() && !loading ? "#fff" : "#9ca3af",
-            display:"flex",alignItems:"center",justifyContent:"center",
+            display: "flex", alignItems: "center", justifyContent: "center",
             cursor: input.trim() && !loading ? "pointer" : "not-allowed",
-            flexShrink:0,transition:"background 0.15s",
+            flexShrink: 0, transition: "background 0.15s",
           }}
         >
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -631,6 +667,7 @@ function RecommendationBot({ navigate }) {
           </svg>
         </button>
       </div>
+
       <style>{`@keyframes botPulse{0%,80%,100%{transform:scale(0.8);opacity:0.5}40%{transform:scale(1);opacity:1}}`}</style>
     </div>
   );
@@ -1197,7 +1234,14 @@ const STYLES = `
   .db-svc-btn--primary{background:#0ea5e9;color:#fff;border-color:#0ea5e9}
   .db-svc-btn--primary:hover{background:#0284c7;border-color:#0284c7}
   @media(max-width:1100px){.db-kpi-grid{grid-template-columns:repeat(2,1fr)}.db-two-col{grid-template-columns:1fr}.db-reviews-row{grid-template-columns:1fr 1fr}}
-  @media(max-width:768px){.db-sidebar{display:none}.db-main{padding:20px 16px}.db-kpi-grid{grid-template-columns:1fr 1fr}.db-reviews-row{grid-template-columns:1fr}}
+  @media(max-width:768px){
+    .db-shell{flex-direction:column}
+    .db-sidebar{width:100%;min-width:0;height:auto;position:relative;padding:12px;border-bottom:1px solid rgba(255,255,255,.1)}
+    .db-brand{padding-bottom:12px;margin-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.07)}
+    .db-nav{flex-direction:row;overflow-x:auto;padding-bottom:4px;gap:8px}
+    .db-nav-item{padding:8px 12px;white-space:nowrap;width:auto}
+    .db-quick-actions, .db-sidebar-footer{display:none}
+    .db-main{padding:20px 16px}.db-kpi-grid{grid-template-columns:1fr 1fr}.db-reviews-row{grid-template-columns:1fr}}
   @media(max-width:480px){.db-kpi-grid{grid-template-columns:1fr}}
   /* ── RecommendationBot ── */
   .db-bot-card { padding: 20px; display: flex; flex-direction: column; gap: 14px; }

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { NavLink, Link, useNavigate } from 'react-router-dom';
-import { FaHome, FaUser, FaBriefcase, FaBars, FaTimes, FaTasks, FaComments } from 'react-icons/fa';
+import { FaHome, FaUser, FaBriefcase, FaBars, FaTimes, FaTasks, FaComments, FaThLarge } from 'react-icons/fa';
 import { FaScrewdriverWrench } from "react-icons/fa6";
 import { getSession, clearSession } from "../lib/session";
 import io from 'socket.io-client';
@@ -147,7 +147,7 @@ function Navbar() {
   
   return (
     <nav className="navbar">
-      <Link to="/" className="logo" onClick={closeMenu}>
+      <Link to={session ? "/Dashboard" : "/"} className="logo" onClick={closeMenu}>
         <FaScrewdriverWrench /> FixHub
       </Link>
 
@@ -161,7 +161,7 @@ function Navbar() {
             <li><NavLink to="/tasks" onClick={closeMenu} className={({ isActive }) => isActive ? "active" : ""}><FaTasks /> <span>Tasks</span></NavLink></li>
           )}
           {session && (
-            <li><NavLink to="/chat" onClick={closeMenu} className={({ isActive }) => isActive ? "active" : ""}><FaComments /> <span>Messages</span></NavLink></li>
+            <li><NavLink to="/Dashboard" onClick={closeMenu} className={({ isActive }) => isActive ? "active" : ""}><FaThLarge /> <span>Dashboard</span></NavLink></li>
           )}
         </ul>
 
@@ -233,13 +233,6 @@ function Navbar() {
                   </div>
 
                   <div className="nav-dropdown-divider" />
-
-                  <Link to="/Dashboard" className="nav-dropdown-item" onClick={() => { setIsDropdownOpen(false); closeMenu(); }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" />
-                    </svg>
-                    Dashboard
-                  </Link>
 
                   <Link to="/profile" className="nav-dropdown-item" onClick={() => { setIsDropdownOpen(false); closeMenu(); }}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

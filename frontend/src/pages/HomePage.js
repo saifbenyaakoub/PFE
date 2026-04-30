@@ -54,8 +54,8 @@ const slideImages = [
 
   useEffect(() => {
     const session = getSession();
-    if (session?.user?.role === 'admin') {
-      navigate('/dashboard', { replace: true });
+    if (session?.user) {
+      navigate('/', { replace: true });
     }
   }, [navigate]);
 

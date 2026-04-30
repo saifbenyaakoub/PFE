@@ -1158,7 +1158,14 @@ const STYLES = `
 
   @media (max-width: 900px) { .db-rv-shell { grid-template-columns: 1fr; } .db-rv-summary { position: static; } }
   @media (max-width: 1100px) { .db-kpi-grid { grid-template-columns: repeat(2, 1fr); } .db-two-col { grid-template-columns: 1fr; } .db-reviews-row { grid-template-columns: 1fr 1fr; } }
-  @media (max-width: 768px) { .db-sidebar { display: none; } .db-main { padding: 20px 16px; } .db-kpi-grid { grid-template-columns: 1fr 1fr; } .db-reviews-row { grid-template-columns: 1fr; } .db-rating-summary { flex-direction: column; gap: 20px; } .db-table th:nth-child(4), .db-table td:nth-child(4) { display: none; } }
+  @media (max-width: 768px) { 
+    .db-shell { flex-direction: column; }
+    .db-sidebar { width: 100%; min-width: 0; height: auto; position: relative; padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.07); } 
+    .db-brand { padding-bottom: 12px; margin-bottom: 12px; }
+    .db-nav { flex-direction: row; overflow-x: auto; padding-bottom: 4px; gap: 8px; }
+    .db-nav-item { padding: 8px 12px; white-space: nowrap; width: auto; }
+    .db-sidebar-footer { display: none; }
+    .db-main { padding: 20px 16px; } .db-kpi-grid { grid-template-columns: 1fr 1fr; } .db-reviews-row { grid-template-columns: 1fr; } .db-rating-summary { flex-direction: column; gap: 20px; } .db-table th:nth-child(4), .db-table td:nth-child(4) { display: none; } }
   @media (max-width: 480px) { .db-kpi-grid { grid-template-columns: 1fr; } }
 
   .db-accept-btn, .db-decline-btn {
