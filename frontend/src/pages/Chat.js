@@ -2,12 +2,19 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { getSession } from "../lib/session";
 import { FaPaperPlane, FaUserCircle, FaArrowLeft, FaFileInvoiceDollar, FaCheck, FaTimes, FaFilePdf, FaEdit, FaClock, FaCalendarAlt, FaPlus, FaTrash } from "react-icons/fa";
 import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
-import io from "socket.io-client";
+import io from "socket.io-client"
+import html2canvas from "html2canvas"; // Replace autoTable with this;
 import "./Chat.css";
 
-const ENDPOINT = "http://localhost:5000";
+// 1. IMPROVEMENT: Use environment variables for API endpoints
+const ENDPOINT = import.meta.env.VITE_API_URL || "http://localhost:5000";
 const EMPTY_ITEM = { description: "", qty: 1, unitPrice: "" };
+
+const resolveImage = (img) => {
+  if (!img) return null;
+  if (img.startsWith("http") || img.startsWith("blob:") || img.startsWith("data:")) return img;
+  return `${ENDPOINT}/uploads/${img}`;
+};
 
 export default function Chat() {
   const [session] = useState(() => getSession());
@@ -16,6 +23,7 @@ export default function Chat() {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [socket, setSocket] = useState(null);
+  const [pdfData, setPdfData] = useState(null);
   const [isTyping, setIsTyping] = useState(false);
   const [showQuotationModal, setShowQuotationModal] = useState(false);
   const [quotation, setQuotation] = useState({ items: [{ ...EMPTY_ITEM }], duration: "", startDate: "" });
@@ -24,6 +32,7 @@ export default function Chat() {
   const messagesEndRef = useRef(null);
   const currentChatRef = useRef(currentChat);
   const typingTimeoutRef = useRef(null);
+  const quotationRef = useRef(null); // Used to target the hidden Canva template[cite: 11]
 
   useEffect(() => { currentChatRef.current = currentChat; }, [currentChat]);
 
@@ -254,187 +263,44 @@ export default function Chat() {
 
   // ── PDF ───────────────────────────────────────────────────────────────────
 
-  const generateQuotationPDF = (data, msg) => {
-  const doc = new jsPDF({
-    orientation: "portrait",
-    unit: "mm",
-    format: "a4",
-  });
+  // 2. IMPROVEMENT: Refactored PDF Generation for premium look
+ const generateQuotationPDF = async (data, msg) => {
+  const isSender = String(msg.sender_id) === String(session.user?.id);
+  const providerName = isSender ? session.user.name : currentChat.other_user_name;
+  const clientName = isSender ? currentChat.other_user_name : session.user.name;
 
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
-  const title = "Devis";
-  const accentR = 9, accentG = 104, accentB = 72; 
+  // Set the data for the specific quotation being downloaded
+  setPdfData({ ...data, id: msg.id, items: normalizeItems(data) });
+  setPdfData({ ...data, id: msg.id, items: normalizeItems(data), providerName, clientName });
 
-  const isOwn = String(msg.sender_id) === String(session.user?.id);
-  const senderName = isOwn ? (session.user?.name || "Provider") : (currentChat?.other_user_name || "Provider");
-  const receiverName = isOwn ? (currentChat?.other_user_name || "Client") : (session.user?.name || "Client");
+  // Give React a moment to render the hidden template with the new data
+  setTimeout(async () => {
+    const element = quotationRef.current;
+    if (!element) return;
 
-  // ── HEADER BACKGROUND BLOCK ──────────────────────────────────────────────
-  doc.setFillColor(15, 15, 25);
-  doc.rect(0, 0, pageWidth, 52, "F");
+    // Reveal hidden template for capture
+    element.style.display = "block";
 
-  // Subtle accent bar on the left edge
-  doc.setFillColor(accentR, accentG, accentB);
-  doc.rect(0, 0, 4, 52, "F");
+    try {
+      const canvas = await html2canvas(element, {
+        scale: 3, // Ensures print quality
+        useCORS: true,
+        backgroundColor: "#FCFBF7", 
+      });
 
-  // ── LOGO / BRAND ─────────────────────────────────────────────────────────
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(24);
-  doc.setTextColor(255, 255, 255);
-  doc.text("FixHub", 14, 22);
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF("p", "mm", "a4");
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
-
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
-  doc.setTextColor(160, 160, 185);
-  doc.text("Tunis, Tunisia", 14, 30);
-  doc.text("contact@fixhub.com  ·  +216 92 992 297", 14, 35);
-
-  // ── TITLE BLOCK (right side) ──────────────────────────────────────────────
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(30);
-  doc.setTextColor(255, 255, 255);
-  doc.text(title, pageWidth - 14, 22, { align: "right" });
-
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8.5);
-  doc.setTextColor(160, 160, 185);
-  const docNum = `N°${String(msg.id).padStart(5, "0")}`;
-  doc.text(docNum, pageWidth - 14, 30, { align: "right" });
-  doc.text(
-    `Délivré : ${new Date(msg.created_at).toLocaleDateString("en-GB", {
-      day: "2-digit", month: "short", year: "numeric",
-    })}`,
-    pageWidth - 14, 35, { align: "right" }
-  );
-
-  // ── META STRIP ────────────────────────────────────────────────────────────
-  const stripY = 52;
-  doc.setFillColor(240, 241, 255);
-  doc.rect(0, stripY, pageWidth, 22, "F");
-
-  const metaItems = [
-    ["De",       senderName],
-    ["Vers",         receiverName],
-    ["START DATE", data.startDate],
-    ["DURATION",   data.duration],
-  ];
-
-  metaItems.forEach(([label, value], i) => {
-    const x = 14 + i * 46;
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.setTextColor(accentR, accentG, accentB);
-    doc.text(label, x, stripY + 7);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.setFontSize(9);
-    doc.setTextColor(20, 20, 40);
-    doc.text(String(value), x, stripY + 15);
-    doc.text(String(value || "—"), x, stripY + 15, { maxWidth: 42 });
-  });
-
-  // ── ITEMS TABLE ───────────────────────────────────────────────────────────
-  const items = normalizeItems(data);
-
-  autoTable(doc, {
-    startY: 82,
-    head: [["DESCRIPTION", "QTY", "UNIT PRICE (TND)", "SUBTOTAL (TND)"]],
-    body: items.map((it) => [
-      it.description,
-      parseInt(it.qty) || 1,
-      (parseFloat(it.unitPrice ?? it.amount) || 0).toFixed(2),
-      ((parseInt(it.qty) || 1) * (parseFloat(it.unitPrice ?? it.amount) || 0)).toFixed(2),
-    ]),
-    theme: "plain",
-    headStyles: {
-      fillColor: [15, 15, 25],
-      textColor: [255, 255, 255],
-      fontStyle: "bold",
-      fontSize: 7.5,
-      halign: "right",
-      cellPadding: { top: 5, bottom: 5, left: 4, right: 4 },
-    },
-    bodyStyles: {
-      textColor: [40, 40, 60],
-      fontSize: 9,
-      cellPadding: { top: 4.5, bottom: 4.5, left: 4, right: 4 },
-    },
-    columnStyles: {
-      0: { halign: "left",  cellWidth: "auto" },
-      1: { halign: "right", cellWidth: 18 },
-      2: { halign: "right", cellWidth: 38 },
-      3: { halign: "right", cellWidth: 38, fontStyle: "bold" },
-    },
-    alternateRowStyles: { fillColor: [246, 246, 252] },
-    // Thin accent top-border under header
-    didDrawPage: (hookData) => {
-      const { table } = hookData;
-      const headerBottom = table.head[0]?.cells[0]?.y + table.head[0]?.cells[0]?.height;
-      if (headerBottom) {
-        doc.setDrawColor(accentR, accentG, accentB);
-        doc.setLineWidth(0.6);
-        doc.line(14, headerBottom, pageWidth - 14, headerBottom);
-      }
-    },
-  });
-
-  // ── TOTAL BLOCK ───────────────────────────────────────────────────────────
-  const finalY = doc.lastAutoTable.finalY || 80;
-
-  // Thin rule above total
-  doc.setDrawColor(220, 220, 235);
-  doc.setLineWidth(0.3);
-  doc.line(14, finalY + 6, pageWidth - 14, finalY + 6);
-
-  // Total pill
-  const totalText = `${parseFloat(data.amount).toFixed(2)} TND`;
-  const pillW = 64, pillH = 14, pillX = pageWidth - 14 - pillW;
-  const pillY = finalY + 10;
-
-  doc.setFillColor(accentR, accentG, accentB);
-  doc.roundedRect(pillX, pillY, pillW, pillH, 3, 3, "F");
-
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(7.5);
-  doc.setTextColor(200, 200, 255);
-  doc.text("TOTAL DUE", pillX + pillW / 2, pillY + 5, { align: "center" });
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(13);
-  doc.setTextColor(255, 255, 255);
-  doc.text(totalText, pillX + pillW / 2, pillY + 11.5, { align: "center" });
-
-  // ── SIGNATURE BLOCK ───────────────────────────────────────────────────────
-  const sigY = pageHeight - 45;
-  doc.setDrawColor(200, 200, 200);
-  doc.setLineWidth(0.4);
-  doc.line(14, sigY, 74, sigY);
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(8);
-  doc.setTextColor(120, 120, 140);
-  doc.text("CLIENT SIGNATURE", 14, sigY + 5);
-
-  // ── FOOTER ────────────────────────────────────────────────────────────────
-  doc.setFillColor(15, 15, 25);
-  doc.rect(0, pageHeight - 20, pageWidth, 20, "F");
-
-  doc.setFillColor(accentR, accentG, accentB);
-  doc.rect(0, pageHeight - 20, 4, 20, "F");
-
-  doc.setFont("helvetica", "italic");
-  doc.setFontSize(8.5);
-  doc.setTextColor(160, 160, 185);
-  doc.text(
-    "",
-    pageWidth / 2,
-    pageHeight - 9,
-    { align: "center" }
-  );
-
-  doc.save(`quotation-${msg.id}.pdf`);
+      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`FixHub_Quotation_${msg.id}.pdf`);
+    } catch (error) {
+      console.error("PDF Export Error:", error);
+    } finally {
+      element.style.display = "none"; // Hide template again
+    }
+  }, 100);
 };
 
   // ── render message ────────────────────────────────────────────────────────
@@ -448,85 +314,79 @@ export default function Chat() {
         const items    = normalizeItems(data);
 
         return (
-          <div className={`quotation-card ${isOwn ? 'sent' : 'received'} status-${data.status}`}>
-            <div className="quotation-card-inner">
+          // 3. IMPROVEMENT: Refactored In-Chat Card UI
+          <div className={`quotation-card modern-ui ${isOwn ? 'sent' : 'received'} status-${data.status}`} style={{
+            background: 'var(--card)',
+            borderRadius: '12px',
+            overflow: 'hidden',
+            boxShadow: '0 4px 15px rgba(0,0,0,0.08)',
+            border: '1px solid var(--border)',
+            minWidth: '280px'
+          }}>
+            <div style={{ background: 'var(--ink)', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ color: '#fff', fontSize: '11px', fontWeight: 700, letterSpacing: '0.5px' }}>
+                <FaFileInvoiceDollar style={{ marginRight: '6px' }} /> QUOTATION
+              </span>
+              <span className={`status-pill ${data.status}`} style={{
+                fontSize: '10px',
+                padding: '2px 8px',
+                borderRadius: '20px',
+                background: data.status === 'accepted' ? 'var(--success)' : (data.status === 'declined' ? 'var(--danger)' : 'var(--accent)'),
+                color: '#fff',
+                fontWeight: 600
+              }}>
+                {data.status.toUpperCase()}
+              </span>
+            </div>
 
-              <div className="quotation-header-row">
-                <div className="quotation-badge">
-                  <FaFileInvoiceDollar size={9} /> Quotation
+            <div style={{ padding: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '15px', fontSize: '12px' }}>
+                <div style={{ color: 'var(--ink-light)' }}>
+                  <FaCalendarAlt style={{ marginRight: '5px' }} /> {data.startDate}
                 </div>
-                {data.status !== "pending" && (
-                  <div className="quotation-status-label">
-                    {data.status === "accepted" ? <FaCheck size={8} /> : <FaTimes size={8} />}
-                    {data.status.toUpperCase()}
+                <div style={{ color: 'var(--ink-light)', textAlign: 'right' }}>
+                  <FaClock style={{ marginRight: '5px' }} /> {data.duration}
+                </div>
+              </div>
+
+              <div style={{ maxHeight: '100px', overflowY: 'auto', marginBottom: '15px' }}>
+                {items.map((it, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', padding: '4px 0', borderBottom: '1px solid var(--border-light)' }}>
+                    <span>{it.description} <small style={{ opacity: 0.6 }}>x{it.qty}</small></span>
+                    <span style={{ fontWeight: 600 }}>{(it.qty * (it.unitPrice || it.amount)).toFixed(2)} TND</span>
                   </div>
+                ))}
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '10px', borderTop: '2px solid var(--cream-alt)' }}>
+                <span style={{ fontSize: '14px', fontWeight: 600 }}>Total</span>
+                <span style={{ fontSize: '18px', fontWeight: 800, color: 'var(--accent)' }}>{parseFloat(data.amount).toFixed(2)} TND</span>
+              </div>
+
+              <div style={{ marginTop: '15px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {data.status === "pending" && !isOwn && isClient && (
+                  <>
+                    <button onClick={() => handleQuotationResponse(msg, 'accepted')} className="btn-accept" style={{ flex: 1 }}>
+                      <FaCheck /> Accept
+                    </button>
+                    <button onClick={() => handleQuotationResponse(msg, 'declined')} className="btn-decline" style={{ flex: 1 }}>
+                      <FaTimes /> Decline
+                    </button>
+                  </>
+                )}
+                
+                {(data.status === "accepted" || (data.status === "pending" && isClient)) && (
+                  <button onClick={() => generateQuotationPDF(data, msg)} className="btn-download-pdf" style={{ width: '100%', justifyContent: 'center', background: 'var(--ink)', color: '#fff' }}>
+                    <FaFilePdf style={{ marginRight: '8px' }} /> Download PDF
+                  </button>
+                )}
+
+                {data.status === "declined" && isOwn && (
+                  <button onClick={() => openModalForEdit(data, msg.id)} className="btn-update-quotation" style={{ width: '100%' }}>
+                    <FaEdit /> Resubmit Quotation
+                  </button>
                 )}
               </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#64748b', marginBottom: '6px' }}>
-                <FaCalendarAlt size={12} />
-                <span><strong>Start Date:</strong> {data.startDate}</span>
-              </div>
-              <div className="quotation-duration" style={{ marginBottom: '10px' }}>
-                <FaClock size={12} />
-                <span><strong>Duration:</strong> {data.duration}</span>
-              </div>
-
-              {/* Items table */}
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', marginBottom: '8px' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
-                    <th style={{ textAlign: 'left', padding: '4px 6px', fontWeight: 500, color: '#64748b' }}>Item</th>
-                    <th style={{ textAlign: 'right', padding: '4px 6px', fontWeight: 500, color: '#64748b' }}>Qty</th>
-                    <th style={{ textAlign: 'right', padding: '4px 6px', fontWeight: 500, color: '#64748b' }}>Subtotal</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((it, i) => {
-                    const qty      = parseInt(it.qty) || 1;
-                    const price    = parseFloat(it.unitPrice ?? it.amount) || 0;
-                    const subtotal = (qty * price).toFixed(2);
-                    return (
-                      <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                        <td style={{ padding: '5px 6px' }}>{it.description}</td>
-                        <td style={{ textAlign: 'right', padding: '5px 6px', color: '#64748b' }}>{qty}</td>
-                        <td style={{ textAlign: 'right', padding: '5px 6px' }}>{subtotal} TND</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-
-              <div className="quotation-divider" />
-              <div className="quotation-amount-row">
-                <span className="quotation-amount-label">Total</span>
-                <span className="quotation-amount">{parseFloat(data.amount).toFixed(2)}</span>
-                <span className="quotation-currency">TND</span>
-              </div>
-
-              {data.status === "pending" && !isOwn && isClient && (
-                <div className="quotation-actions">
-                  <button onClick={() => handleQuotationResponse(msg, 'accepted')} className="btn-accept">
-                    <FaCheck size={11} /> Accept
-                  </button>
-                  <button onClick={() => handleQuotationResponse(msg, 'declined')} className="btn-decline">
-                    <FaTimes size={11} /> Decline
-                  </button>
-                </div>
-              )}
-
-              {data.status === "declined" && isOwn && (
-                <button onClick={() => openModalForEdit(data, msg.id)} className="btn-update-quotation">
-                  <FaEdit size={11} /> Update Quotation
-                </button>
-              )}
-
-              {(data.status === "accepted" || (data.status === "pending" && isClient)) && (
-                <button onClick={() => generateQuotationPDF(data, msg)} className="btn-download-pdf">
-                  <FaFilePdf size={12} />
-                  {data.status === "accepted" ? "Download Quotation" : "View Quotation"}
-                </button>
-              )}
             </div>
           </div>
         );
@@ -540,68 +400,108 @@ export default function Chat() {
   if (!session) return <div className="chat-container">Please sign in.</div>;
 
   function getLastMessage(lastMessage) {
-  if (!lastMessage) return "No messages yet";
-  try {
-    const parsed = JSON.parse(lastMessage);
-    if (parsed.type === "quotation") {
-      const statusEmoji = parsed.status === "accepted" ? "✅" : parsed.status === "declined" ? "❌" : "⏳";
-      const count = parsed.items?.length ?? 1;
-      return `${statusEmoji} Quotation: ${count} item(s) — ${parseFloat(parsed.amount).toFixed(2)} TND`;
+    if (!lastMessage) return "No messages yet";
+    try {
+      const parsed = JSON.parse(lastMessage);
+      if (parsed.type === "quotation") {
+        const statusEmoji = parsed.status === "accepted" ? "✅" : parsed.status === "declined" ? "❌" : "⏳";
+        return `${statusEmoji} Quotation: ${parseFloat(parsed.amount).toFixed(2)} TND`;
+      }
+      return lastMessage;
+    } catch (e) {
+      return lastMessage;
     }
-    return lastMessage;
-  } catch (e) {
-    return lastMessage;
   }
-}
 
   // ── render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="chat-container">
+    <div className="chat-container db-card" style={{ height: 'calc(100vh - 130px)', display: 'flex', padding: 0, overflow: 'hidden', border: '1px solid var(--border)' }}>
+      <style>{`
+        .conversations-list::-webkit-scrollbar,
+        .messages-area::-webkit-scrollbar {
+          display: none;
+        }
+        .conversations-list,
+        .messages-area {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        .btn-accept { background: var(--success); color: white; border: none; padding: 8px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; }
+        .btn-decline { background: var(--danger); color: white; border: none; padding: 8px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; }
+        .btn-download-pdf { display: flex; align-items: center; border: 1px solid var(--border); padding: 8px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; margin-top: 5px; }
+      `}</style>
+      
+      {/* Sidebar and rest of the UI stays largely the same but uses the refactored logic */}
       <div className={`chat-sidebar ${currentChat ? "mobile-hidden" : ""}`}>
-        <div className="sidebar-header"><h3>Messages</h3></div>
-        <div className="conversations-list">
+        <div className="sidebar-header" style={{ padding: '20px', borderBottom: '1px solid var(--border)' }}>
+          <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, fontFamily: 'var(--font-display)' }}>Messages</h3>
+        </div>
+        <div className="conversations-list" style={{ flex: 1, overflowY: 'auto' }}>
           {conversations.map((chat) => (
             <div
               key={chat.id}
               className={`conversation-item ${currentChat?.id === chat.id ? "active" : ""}`}
               onClick={() => setCurrentChat(chat)}
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '12px', 
+                padding: '12px 20px', 
+                cursor: 'pointer',
+                borderBottom: '1px solid var(--border)',
+                backgroundColor: currentChat?.id === chat.id ? 'var(--cream-alt)' : 'transparent',
+                transition: 'background 0.2s'
+              }}
             >
-              <div className="avatar-placeholder">
+              <div className="db-booking-avatar" style={{ width: 44, height: 44, fontSize: 14, flexShrink: 0 }}>
                 {chat.other_user_image
-                  ? <img src={`${ENDPOINT}${chat.other_user_image}`} alt="" />
-                  : <FaUserCircle />}
+                  ? <img src={resolveImage(chat.other_user_image)} alt="" className="db-avatar-img" onError={e => e.target.style.display = 'none'} />
+                  : (chat.other_user_name || "?").split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()
+                }
               </div>
               <div className="conversation-info">
-                <h4>{chat.other_user_name}</h4>
-                <p>{getLastMessage(chat.last_message) || "No messages yet"}</p>
+                <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: 'var(--ink)' }}>{chat.other_user_name}</h4>
+                <p style={{ margin: 0, fontSize: '12.5px', color: 'var(--ink-light)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {getLastMessage(chat.last_message) || "No messages yet"}
+                </p>
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      <div className={`chat-main ${!currentChat ? "mobile-hidden" : ""}`}>
+      <div className={`chat-main ${!currentChat ? "mobile-hidden" : ""}`} style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--card)' }}>
         {currentChat ? (
           <>
-            <div className="chat-header">
+            <div className="chat-header" style={{ padding: '15px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '15px' }}>
               <button className="mobile-back-btn" onClick={() => setCurrentChat(null)}><FaArrowLeft /></button>
-              <h4>{currentChat.other_user_name}</h4>
+              <div className="db-booking-avatar" style={{ width: 36, height: 36, fontSize: 12 }}>
+                {currentChat.other_user_image
+                  ? <img src={resolveImage(currentChat.other_user_image)} alt="" className="db-avatar-img" />
+                  : (currentChat.other_user_name || "?").split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()
+                }
+              </div>
+              <div style={{ flex: 1 }}>
+                <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 700, fontFamily: 'var(--font-display)' }}>{currentChat.other_user_name}</h4>
+                <span style={{ fontSize: '11px', color: 'var(--success)', fontWeight: 500 }}>Online</span>
+              </div>
               {session.user.role === "provider" && canSendOrUpdate && (
                 <button
-                  className="create-quotation-btn"
+                  className="db-cta"
+                  style={{ padding: '8px 14px', fontSize: '12.5px' }}
                   onClick={() => existingQuotationMsg
                     ? openModalForEdit(existingQuotationData, existingQuotationMsg.id)
                     : openModalForNew()
                   }
                 >
                   <FaFileInvoiceDollar />
-                  <span>{existingQuotationMsg ? "Update Quotation" : "Send Quotation"}</span>
+                  <span style={{ marginLeft: '6px' }}>{existingQuotationMsg ? "Update Quotation" : "Send Quotation"}</span>
                 </button>
               )}
             </div>
 
-            <div className="messages-area" style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+            <div className="messages-area" style={{ flex: 1, overflowY: 'auto', padding: '20px', display: "flex", flexDirection: "column", gap: "10px", background: 'var(--cream-alt)' }}>
               {messages.map((msg) => {
                 const isQuotation = (() => {
                   try { return JSON.parse(msg.content).type === "quotation"; } catch (e) { return false; }
@@ -609,11 +509,8 @@ export default function Chat() {
 
                 if (isQuotation) {
                   return (
-                    <div key={msg.id} className="quotation-msg-wrapper">
+                    <div key={msg.id} className="quotation-msg-wrapper" style={{ alignSelf: String(msg.sender_id) === String(session.user?.id) ? "flex-end" : "flex-start", marginBottom: '15px' }}>
                       {renderMessageContent(msg)}
-                      <span className="quotation-msg-time">
-                        {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
                     </div>
                   );
                 }
@@ -624,11 +521,19 @@ export default function Chat() {
                     className={`message-bubble ${String(msg.sender_id) === String(session.user?.id) ? "sent" : "received"}`}
                     style={{
                       alignSelf: String(msg.sender_id) === String(session.user?.id) ? "flex-end" : "flex-start",
-                      maxWidth: "75%", wordBreak: "break-word"
+                      maxWidth: "75%", 
+                      wordBreak: "break-word",
+                      padding: '10px 14px',
+                      borderRadius: String(msg.sender_id) === String(session.user?.id) ? '16px 16px 2px 16px' : '2px 16px 16px 16px',
+                      fontSize: '13.5px',
+                      backgroundColor: String(msg.sender_id) === String(session.user?.id) ? 'var(--ink)' : '#fff',
+                      color: String(msg.sender_id) === String(session.user?.id) ? '#fff' : 'var(--ink)',
+                      boxShadow: '0 2px 5px rgba(0,0,0,0.05)',
+                      border: String(msg.sender_id) === String(session.user?.id) ? 'none' : '1px solid var(--border)'
                     }}
                   >
-                    {renderMessageContent(msg)}
-                    <div className="message-time">
+                    {msg.content}
+                    <div style={{ fontSize: '10px', opacity: 0.6, marginTop: '4px', textAlign: 'right' }}>
                       {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </div>
                   </div>
@@ -643,35 +548,39 @@ export default function Chat() {
               <div ref={messagesEndRef} />
             </div>
 
-            <form className="chat-input-area" onSubmit={handleSendMessage}>
+            <form className="chat-input-area" onSubmit={handleSendMessage} style={{ padding: '15px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: '10px', background: 'var(--card)' }}>
               <input
                 type="text"
                 placeholder="Type a message..."
                 value={newMessage}
                 onChange={(e) => { setNewMessage(e.target.value); handleTyping(); }}
+                style={{ flex: 1, padding: '10px 16px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '14px', outline: 'none', background: 'var(--card)', color: 'var(--ink)' }}
               />
-              <button type="submit"><FaPaperPlane /></button>
+              <button type="submit" className="db-cta" style={{ borderRadius: '8px', width: '42px', padding: 0, justifyContent: 'center' }}><FaPaperPlane /></button>
             </form>
           </>
         ) : (
-          <div className="no-chat-selected"><h3>Select a conversation</h3></div>
+          <div className="no-chat-selected" style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', color: 'var(--ink-light)' }}>
+            <h3>Select a conversation to start chatting</h3>
+          </div>
         )}
       </div>
 
-      {/* Quotation modal */}
+      {/* Quotation modal logic remains the same */}
       {showQuotationModal && (
-        <div className="modal-overlay">
-          <div className="quotation-modal">
+        <div className="db-modal-overlay">
+          <div className="db-modal">
             <div className="modal-header">
-              <h3>{editingMessageId ? "Update Quotation" : "Create Quotation"}</h3>
-              <button className="close-btn" onClick={() => { setShowQuotationModal(false); setEditingMessageId(null); }}>
+              <h3 className="db-modal-title">{editingMessageId ? "Update Quotation" : "Create Quotation"}</h3>
+              <button className="db-icon-btn" onClick={() => { setShowQuotationModal(false); setEditingMessageId(null); }}>
                 <FaTimes />
               </button>
             </div>
             <form onSubmit={handleSendQuotation}>
-              <div className="form-group">
-                <label>Start Date</label>
+              <div className="db-form-group">
+                <label className="db-form-label">Start Date</label>
                 <input
+                  className="db-form-input"
                   type="date"
                   value={quotation.startDate}
                   onChange={(e) => setQuotation(prev => ({ ...prev, startDate: e.target.value }))}
@@ -679,9 +588,10 @@ export default function Chat() {
                   required
                 />
               </div>
-              <div className="form-group">
-                <label>Estimated Duration</label>
+              <div className="db-form-group">
+                <label className="db-form-label">Estimated Duration</label>
                 <input
+                  className="db-form-input"
                   type="text"
                   value={quotation.duration}
                   onChange={(e) => setQuotation(prev => ({ ...prev, duration: e.target.value }))}
@@ -690,11 +600,12 @@ export default function Chat() {
                 />
               </div>
 
-              <div className="form-group">
-                <label>Line Items</label>
+              <div className="db-form-group">
+                <label className="db-form-label">Line Items</label>
                 {quotation.items.map((item, idx) => (
                   <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1fr 60px 90px 32px', gap: '6px', marginBottom: '8px', alignItems: 'center' }}>
                     <input
+                      className="db-form-input"
                       type="text"
                       placeholder="Description"
                       value={item.description}
@@ -702,6 +613,7 @@ export default function Chat() {
                       required
                     />
                     <input
+                      className="db-form-input"
                       type="number"
                       placeholder="Qty"
                       min="1"
@@ -710,6 +622,7 @@ export default function Chat() {
                       required
                     />
                     <input
+                      className="db-form-input"
                       type="number"
                       placeholder="Price"
                       min="0"
@@ -731,22 +644,74 @@ export default function Chat() {
                 <button
                   type="button"
                   onClick={addItem}
-                  style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#185FA5', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0', fontWeight: 600 }}
                 >
                   <FaPlus size={11} /> Add item
                 </button>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px', marginBottom: '16px', fontSize: '15px', fontWeight: 500 }}>
-                <span style={{ color: '#64748b' }}>Total:</span>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px', marginBottom: '20px', fontSize: '16px', fontWeight: 700, color: 'var(--ink)' }}>
+                <span style={{ color: 'var(--ink-mid)', fontSize: '14px', fontWeight: 500 }}>Total:</span>
                 <span>{calcTotal(quotation.items).toFixed(2)} TND</span>
               </div>
 
-              <button type="submit" className="submit-quotation-btn">Send to Client</button>
+              <div className="db-modal-actions">
+                <button type="submit" className="db-cta" style={{ width: '100%', justifyContent: 'center' }}>Send to Client</button>
+              </div>
             </form>
           </div>
         </div>
       )}
+      {/* ── CANVA PDF TEMPLATE (Hidden from UI) ── */}
+      {pdfData && (
+  
+        <div ref={quotationRef} style={{ display: 'none', width: '800px', padding: '60px', background: '#FCFBF7', position: 'absolute', left: '-9999px', fontFamily: "'DM Sans', sans-serif" }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '4px solid #161629', paddingBottom: '30px', marginBottom: '40px' }}>
+            <div>
+              <h1 style={{ fontSize: '48px', margin: 0, color: '#161629', fontFamily: "'Sora', sans-serif", fontWeight: 800 }}>FIXHUB</h1>
+              <p style={{ color: '#D85A30', fontWeight: 700, letterSpacing: '2px', fontSize: '14px', marginTop: '5px' }}>OFFICIAL QUOTATION</p>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <p style={{ margin: 0, fontWeight: 700, fontSize: '15px', color: '#161629' }}>REF: #QT-{pdfData.id}</p>
+              <p style={{ margin: 0, opacity: 0.7, fontSize: '13px', color: '#161629' }}>Date: {new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '40px' }}>
+            <div>
+              <p style={{ margin: '0 0 5px', fontSize: '12px', color: '#D85A30', fontWeight: 700, textTransform: 'uppercase' }}>From (Provider)</p>
+              <p style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: '#161629' }}>{pdfData.providerName}</p>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <p style={{ margin: '0 0 5px', fontSize: '12px', color: '#D85A30', fontWeight: 700, textTransform: 'uppercase' }}>To (Client)</p>
+              <p style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: '#161629' }}>{pdfData.clientName}</p>
+            </div>
+          </div>
+          
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+            <tr style={{ background: '#161629', color: '#fff', borderRadius: '8px 8px 0 0', overflow: 'hidden' }}>
+              <th style={{ textAlign: 'left', padding: '12px 15px' }}>DESCRIPTION</th>
+              <th style={{ textAlign: 'center', padding: '12px 15px' }}>QTY</th>
+              <th style={{ textAlign: 'right', padding: '12px 15px' }}>UNIT PRICE</th>
+              <th style={{ textAlign: 'right', padding: '12px 15px' }}>TOTAL</th>
+            </tr>
+            {pdfData.items.map((it, i) => (
+              <tr key={i} style={{ borderBottom: '1px solid #eee' }}>
+                <td style={{ padding: '12px 15px' }}>{it.description}</td>
+                <td style={{ textAlign: 'center', padding: '12px 15px' }}>{it.qty}</td>
+                <td style={{ textAlign: 'right', padding: '12px 15px' }}>{parseFloat(it.unitPrice || it.amount).toFixed(2)} TND</td>
+                <td style={{ textAlign: 'right', padding: '12px 15px', fontWeight: 600 }}>{(it.qty * (it.unitPrice || it.amount)).toFixed(2)} TND</td>
+              </tr>
+            ))}
+          </table>
+          <div style={{ marginTop: '40px', display: 'flex', justifyContent: 'flex-end' }}>
+            <div style={{ background: '#161629', color: '#fff', padding: '20px 30px', borderRadius: '12px', boxShadow: '0 8px 20px rgba(0,0,0,0.15)' }}>
+              <h2 style={{ margin: 0, fontSize: '28px', fontFamily: "'Sora', sans-serif", fontWeight: 800 }}>{parseFloat(pdfData.amount).toFixed(2)} TND</h2>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+    
   );
 }

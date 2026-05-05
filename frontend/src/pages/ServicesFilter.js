@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faChevronDown, faCheck } from '@fortawesome/free-solid-svg-icons';
+import { faChevronDown, faCheck, faFilter } from '@fortawesome/free-solid-svg-icons';
 
 function CustomDropdown({ options, value, onChange, placeholder }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -17,52 +17,42 @@ function CustomDropdown({ options, value, onChange, placeholder }) {
   }, []);
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className="custom-dropdown-container" ref={dropdownRef}>
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full flex items-center justify-between p-3 bg-white border rounded-xl shadow-sm transition-all duration-300 ${
-          isOpen ? 'border-blue-500 ring-2 ring-blue-100' : 'border-gray-200 hover:border-blue-300'
-        }`}
+        className={`dropdown-trigger ${isOpen ? 'active' : ''} ${value ? 'has-value' : ''}`}
       >
-        <span className={`text-sm font-medium ${value ? 'text-gray-900' : 'text-gray-500'}`}>
-          {value || placeholder}
-        </span>
+        <span className="dropdown-label">{value || placeholder}</span>
         <FontAwesomeIcon
           icon={faChevronDown}
-          className={`text-gray-400 text-xs transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
+          className={`dropdown-chevron ${isOpen ? 'rotated' : ''}`}
         />
       </button>
 
-      <div
-        className={`absolute z-20 mt-2 w-full bg-white border border-gray-100 rounded-xl shadow-xl overflow-hidden transition-all duration-200 origin-top ${
-          isOpen ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 -translate-y-2 pointer-events-none'
-        }`}
-      >
-        <ul className="max-h-60 overflow-y-auto py-1 space-y-1">
-          <li
-            onClick={() => { onChange(""); setIsOpen(false); }}
-            className={`px-4 py-2.5 mx-1 rounded-lg text-sm cursor-pointer transition-all duration-200 hover:bg-blue-50 flex items-center justify-between ${
-              value === "" ? 'text-blue-600 bg-blue-50 font-semibold' : 'text-gray-600'
-            }`}
-          >
-            <span>{placeholder}</span>
-            {value === "" && <FontAwesomeIcon icon={faCheck} className="text-xs" />}
-          </li>
-          {options.map((option) => (
+      {isOpen && (
+        <div className="dropdown-menu">
+          <ul className="dropdown-list">
             <li
-              key={option}
-              onClick={() => { onChange(option); setIsOpen(false); }}
-              className={`px-4 py-2.5 mx-1 rounded-lg text-sm cursor-pointer transition-all duration-200 hover:bg-blue-50 flex items-center justify-between ${
-                value === option ? 'text-blue-600 bg-blue-50 font-semibold' : 'text-gray-700'
-              }`}
+              onClick={() => { onChange(""); setIsOpen(false); }}
+              className={`dropdown-item ${value === "" ? 'selected' : ''}`}
             >
-              <span>{option}</span>
-              {value === option && <FontAwesomeIcon icon={faCheck} className="text-xs" />}
+              <span>{placeholder}</span>
+              {value === "" && <FontAwesomeIcon icon={faCheck} className="check-icon" />}
             </li>
-          ))}
-        </ul>
-      </div>
+            {options.map((option) => (
+              <li
+                key={option}
+                onClick={() => { onChange(option); setIsOpen(false); }}
+                className={`dropdown-item ${value === option ? 'selected' : ''}`}
+              >
+                <span>{option}</span>
+                {value === option && <FontAwesomeIcon icon={faCheck} className="check-icon" />}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
@@ -73,15 +63,22 @@ export default function ServicesFilter({
   categories,
   selectedCity,
   setSelectedCity,
-  cities
+  cities,
+  sortBy,
+  setSortBy
 }) {
+  const sortOptions = ["Most Popular (Hires)", "Highest Rated", "Newest"];
+
   return (
-    <aside className="w-full md:w-1/4 p-6 bg-gray-50 rounded-2xl h-fit mb-6 md:mb-0 border border-gray-100 shadow-sm md:sticky top-10">
-      <h2 className="font-bold text-xl mb-6 text-gray-800">Filter</h2>
-      <div className="space-y-5">
-        
-        <div>
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 ml-1">Category</label>
+    <div className="filter-sidebar-inner">
+      <div className="filter-header">
+        <FontAwesomeIcon icon={faFilter} className="filter-icon" />
+        <h2 className="filter-title">Filters</h2>
+      </div>
+      
+      <div className="filter-groups-wrapper">
+        <div className="filter-group">
+          <label className="filter-label">Category</label>
           <CustomDropdown
             options={categories}
             value={selectedCategory}
@@ -90,8 +87,8 @@ export default function ServicesFilter({
           />
         </div>
 
-        <div>
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 ml-1">Location</label>
+        <div className="filter-group">
+          <label className="filter-label">Location</label>
           <CustomDropdown
             options={cities || []}
             value={selectedCity}
@@ -99,7 +96,30 @@ export default function ServicesFilter({
             placeholder="All Locations"
           />
         </div>
+
+        <div className="filter-group">
+          <label className="filter-label">Sort By</label>
+          <CustomDropdown
+            options={sortOptions}
+            value={sortBy}
+            onChange={setSortBy}
+            placeholder="Default"
+          />
+        </div>
       </div>
-    </aside>
+      
+      {(selectedCategory || selectedCity || sortBy) && (
+        <button 
+          className="clear-filters-btn"
+          onClick={() => {
+            setSelectedCategory("");
+            setSelectedCity("");
+            setSortBy("");
+          }}
+        >
+          Reset Filters
+        </button>
+      )}
+    </div>
   );
 }

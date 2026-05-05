@@ -3,7 +3,7 @@ import ChatPage from "./Chat";
 import { useNavigate } from "react-router-dom";
 import { getSession } from "../lib/session";
 import StatusDropdown from "./StatusDropdown";
-import "./dashboard.css";
+import "../dashboard.css";
 
 const API = "http://localhost:5000";
 
