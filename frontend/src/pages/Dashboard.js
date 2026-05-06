@@ -382,10 +382,11 @@ function RecommendationBot() {
 // ── Task Card ─────────────────────────────────────────────────────────────────
 function TaskCard({ task }) {
   const tm = TASK_STATUS_META[task.status] || TASK_STATUS_META.open;
+       
   return (
     <div className="db-task-card">
       {task.image && (
-        <img src={`${API_URL}/${task.image}`} alt={task.title} className="db-task-img" />
+        <img src={`${API_URL}${task.image}`} alt={task.title} className="db-task-img" />
       )}
       <div className="db-task-body">
         <div className="db-task-top">
