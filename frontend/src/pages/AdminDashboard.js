@@ -7,6 +7,7 @@ import {
 } from "react-icons/fa";
 import { FaScrewdriverWrench } from "react-icons/fa6";
 import apiClient from "../lib/apiClient";
+import "./dashboard.css";
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -89,7 +90,7 @@ export default function AdminDashboard() {
   });
 
   return (
-    <div className="flex min-h-screen bg-[#f8f9fc] font-dm-sans">
+    <div className="db-page">
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Sora:wght@700;800&family=DM+Sans:wght@400;500;700&display=swap');
         .font-sora { font-family: 'Sora', sans-serif; }
@@ -97,7 +98,7 @@ export default function AdminDashboard() {
       `}</style>
 
       {/* Sidebar */}
-      <aside className="w-64 bg-[#0a0a0a] text-white p-6 flex flex-col sticky top-0 h-screen border-r border-white/5">
+      <aside className="db-sidebar">
         <div className="flex items-center gap-3 text-xl font-extrabold mb-10 px-2 font-sora">
           <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-[#0a0a0a]">
             <FaScrewdriverWrench size={20} />
@@ -105,8 +106,7 @@ export default function AdminDashboard() {
           <span>FixHub</span>
         </div>
         
-        <nav className="flex-grow space-y-1">
-          <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest mb-4 px-4">Management</p>
+        <nav className="db-sidebar-nav">
           {[
             { id: 'users', icon: <FaUsers />, label: 'Users' },
             { id: 'services', icon: <FaBriefcase />, label: 'Services' },
@@ -116,15 +116,15 @@ export default function AdminDashboard() {
             <button 
               key={tab.id}
               onClick={() => setActiveTab(tab.id)} 
-              className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all duration-200 group ${activeTab === tab.id ? 'bg-white text-[#0a0a0a] font-bold shadow-lg shadow-white/5' : 'text-white/40 hover:bg-white/5 hover:text-white/80'}`}
+              className={`db-sidebar-link${activeTab === tab.id ? ' db-sidebar-link--active' : ''}`}
             >
-              <span className={activeTab === tab.id ? 'text-[#0a0a0a]' : 'text-white/20 group-hover:text-white/60'}>{tab.icon}</span>
-              {tab.label}
+              {tab.icon}
+              <span>{tab.label}</span>
             </button>
           ))}
         </nav>
 
-        <div className="pt-6 border-t border-white/10 mt-auto">
+        <div className="db-sidebar-footer">
           <div className="flex items-center gap-3 px-2 mb-4">
              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center font-bold text-xs">
                {initials}
@@ -134,33 +134,36 @@ export default function AdminDashboard() {
                <p className="text-[10px] text-white/40 uppercase tracking-tight">System Administrator</p>
              </div>
           </div>
-          <button onClick={handleSignOut} className="w-full flex items-center gap-3 px-4 py-3 text-white/40 hover:text-red-400 hover:bg-red-500/5 rounded-xl transition-all text-sm font-medium">
+          <button onClick={handleSignOut} className="db-cta db-cta--outline" style={{ width: '100%', justifyContent: 'center', fontSize: 13 }}>
             <FaSignOutAlt /> Sign Out
           </button>
         </div>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-grow p-10 overflow-y-auto">
-        <header className="flex justify-between items-end mb-10">
+      <main className="db-main">
+        <div className="db-topbar">
           <div>
-            <h1 className="text-3xl font-[800] text-[#0a0a0a] tracking-tight font-sora">Admin Dashboard</h1>
-            <p className="text-slate-400 mt-1 font-medium">Monitoring FixHub Ecosystem & Safety</p>
+            <h1 className="db-page-title">Admin Dashboard</h1>
+            <p className="db-page-sub">Monitoring FixHub ecosystem, users, tasks and reports</p>
           </div>
-          <div className="relative group">
-            <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-[#0a0a0a] transition-colors" />
-            <input 
-              type="text" 
-              placeholder={`Search ${activeTab}...`}
-              className="pl-11 pr-4 py-3 bg-white border border-[#f1f5f9] rounded-2xl w-80 focus:ring-4 focus:ring-[#0a0a0a]/5 focus:border-[#0a0a0a] outline-none shadow-sm transition-all font-medium text-sm"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+          <div className="db-search-wrap" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div className="db-search-box" style={{ position: 'relative', width: 320 }}>
+              <FaSearch style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: '#888' }} />
+              <input 
+                type="text" 
+                placeholder={`Search ${activeTab}...`}
+                className="db-form-input"
+                style={{ paddingLeft: 42, width: '100%', borderRadius: '999px', background: 'var(--card2)', borderColor: 'var(--border)' }}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
           </div>
-        </header>
+        </div>
 
         {/* Stats Row */}
-        <div className="grid grid-cols-4 gap-6 mb-10">
+        <div className="db-kpi-grid mb-10">
           {[
             { label: 'Total Users', value: users.length, icon: <FaUsers />, color: 'blue' },
             { label: 'Active Services', value: services.length, icon: <FaBriefcase />, color: 'emerald' },

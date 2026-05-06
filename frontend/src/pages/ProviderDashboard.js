@@ -3,7 +3,7 @@ import ChatPage from "./Chat";
 import { useNavigate } from "react-router-dom";
 import { getSession } from "../lib/session";
 import StatusDropdown from "./StatusDropdown";
-import "./dashboard.css";
+import "./providerDashboard.css";
 
 const API = "http://localhost:5000";
 
@@ -366,7 +366,7 @@ export default function ProviderDashboard() {
   const AVATAR_COLORS = ["#6366f1","#0ea5e9","#10b981","#f59e0b","#ec4899","#8b5cf6","#14b8a6"];
 
   return (
-    <div className="db-shell">
+    <div className="db-page">
       {serviceModal && (
         <ServiceModal
           service={serviceModal === "add" ? null : serviceModal}
@@ -381,9 +381,9 @@ export default function ProviderDashboard() {
           <span className="db-brand-icon">{Icon.wrench}</span>
           <span className="db-brand-text">Fix<em>Hub</em></span>
         </div>
-        <nav className="db-nav">
+        <nav className="db-sidebar-nav">
           {TABS.map(t => (
-            <button key={t.id} className={`db-nav-item${tab === t.id ? " db-nav-item--active" : ""}`} onClick={() => setTab(t.id)}>
+            <button key={t.id} className={`db-sidebar-link${tab === t.id ? " db-sidebar-link--active" : ""}`} onClick={() => setTab(t.id)}>
               {t.icon}<span>{t.label}</span>
             </button>
           ))}

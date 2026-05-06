@@ -2,16 +2,19 @@ import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { 
-  faHammer, faWrench, faRuler, faPaintBrush, faFaucet, faStar, faLocationDot, faXmark, faCheckCircle, faUser, faSearch
-} from '@fortawesome/free-solid-svg-icons';
 import { getSession } from "../lib/session";
 import { MapContainer, TileLayer, Marker } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import "./services.css";
 import ServicesFilter from "./ServicesFilter";
+import { 
+  faHammer, faWrench, faRuler, faPaintBrush, faFaucet, faStar, faLocationDot, faXmark, faCheckCircle, faUser, faSearch,
+  faSprayCan, faTaxi, faCar, faBroom, faLeaf, faBox, faGear
+} from '@fortawesome/free-solid-svg-icons';
 
+// Add inside the component:
+const icons = [faHammer, faWrench, faRuler, faPaintBrush, faFaucet, faSprayCan, faTaxi, faCar, faBroom, faLeaf, faBox, faGear];
 const governorateCoordinates = {
   "Tunis": [36.8065, 10.1815], "Ariana": [36.8665, 10.1647], "Ben Arous": [36.746, 10.228],
   "Manouba": [36.808, 10.096], "Nabeul": [36.456, 10.735], "Zaghouan": [36.403, 10.144],
@@ -116,10 +119,22 @@ function ServicesPage() {
   return (
     <div className="services-container">
       <div className="services-inner">
-        <header className="services-banner">
-          <h1>Find the <em>perfect</em> professional</h1>
-          <p>Connect with trusted experts for your home or business needs</p>
-        </header>
+        {/* Banner */}
+<header className="services-banner">
+  {/* Floating icons — same as TasksPage */}
+  {Array.from({ length: 12 }).map((_, i) => (
+    <div key={i} className="floating-icon" style={{
+      left: `${Math.random() * 90}%`,
+      "--icon-size": `${Math.random() * 40 + 30}px`,
+      animationDelay: `-${Math.random() * 10}s`,
+      animationDuration: `${Math.random() * 10 + 15}s`,
+    }}>
+      <FontAwesomeIcon icon={icons[i % icons.length]} />
+    </div>
+  ))}
+  <h1>Find the <em>perfect</em> professional</h1>
+  <p>Connect with trusted experts for your home or business needs</p>
+</header>
 
         <div className="services-search-wrapper">
           <div className="services-search-bar">

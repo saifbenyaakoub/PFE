@@ -157,7 +157,7 @@ export default function Chat() {
   }, [currentChat, socket, session]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [messages, isTyping]);
 
   const handleTyping = () => {
@@ -416,7 +416,7 @@ export default function Chat() {
   // ── render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="chat-container db-card" style={{ height: 'calc(100vh - 130px)', display: 'flex', padding: 0, overflow: 'hidden', border: '1px solid var(--border)' }}>
+    <div className="chat-container db-card" style={{ height: '100%', display: 'flex', padding: 0, overflow: 'hidden', border: '1px solid var(--border)' }}>
       <style>{`
         .conversations-list::-webkit-scrollbar,
         .messages-area::-webkit-scrollbar {

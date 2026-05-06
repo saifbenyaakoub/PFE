@@ -38,8 +38,8 @@ function Footer() {
   const session = getSession();
   const user = session?.user;
 
-  // Hide footer on dashboard pages and for admin users
-  if (location.pathname.toLowerCase().includes('dashboard') || user?.role === 'admin') {
+  // Hide footer only for admin users
+  if (user?.role === 'admin') {
     return null;
   }
 
