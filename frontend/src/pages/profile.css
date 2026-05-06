@@ -1,0 +1,468 @@
+/* ── profile.css ──────────────────────────────────────────────────────────────
+   Aligned with home.css design tokens. Requires home.css (or a shared base)
+   to have already defined the :root variables:
+     --bg, --card, --card2, --card3, --ink, --ink2, --ink3, --ink4,
+     --border, --border2, --green, --green-bg, --green-bd, --r, --r-sm
+   ──────────────────────────────────────────────────────────────────────────── */
+
+/* ── PAGE SHELL — matches home-wrap ── */
+.profile-shell {
+  max-width: 860px;
+  margin: 14px auto 60px;
+  padding: 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-family: 'Inter', sans-serif;
+  color: var(--ink);
+}
+
+.profile-shell--loading {
+  min-height: 60vh;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+}
+
+.loading-text {
+  font-size: 13.5px;
+  color: var(--ink3);
+  font-weight: 500;
+}
+
+/* ── PROFILE CARD — uses home's .card base ── */
+/* .card is already defined in home.css; we just extend it */
+.profile-card {
+  overflow: hidden;
+}
+
+/* ── COVER — dark header, same language as home's .search-dark / .cta-card ── */
+.profile-cover {
+  position: relative;
+  width: 100%;
+  height: 230px;
+  background: var(--ink);
+  background-image:
+    radial-gradient(circle at 15% 60%, rgba(22,163,74,.15) 0%, transparent 45%),
+    radial-gradient(circle at 85% 15%, rgba(245,158,11,.10) 0%, transparent 38%),
+    radial-gradient(circle at 50% 80%, rgba(37,99,235,.08) 0%, transparent 40%),
+    repeating-linear-gradient(
+      -45deg, transparent, transparent 28px,
+      rgba(255,255,255,0.015) 28px, rgba(255,255,255,0.015) 29px
+    );
+  overflow: hidden;
+}
+
+/* Animated rings — same as home's .cta-ring */
+.profile-cover-ring {
+  position: absolute;
+  width: 600px; height: 600px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,.05);
+  pointer-events: none;
+  left: 50%; top: 50%;
+  animation: ringOut 5s linear infinite;
+}
+
+@keyframes ringOut {
+  from { transform: translate(-50%,-50%) scale(.1); opacity: .7; }
+  to   { transform: translate(-50%,-50%) scale(2); opacity: 0; }
+}
+
+/* Decorative circles */
+.cover-circle {
+  position: absolute;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255,255,255,0.06);
+  pointer-events: none;
+}
+.cover-circle-1 { width: 280px; height: 280px; top: -100px; right: -80px; }
+.cover-circle-2 { width: 160px; height: 160px; top: 30px; right: 100px; opacity: .6; }
+.cover-circle-3 { width: 100px; height: 100px; bottom: 40px; right: 220px; opacity: .35; }
+
+/* Pulsing dots — mirrors home's .hero-badge-dot animation */
+.cover-dots {
+  position: absolute;
+  top: 20px; left: 24px;
+  display: flex; gap: 6px;
+  opacity: .5;
+}
+.cover-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.4);
+  animation: pls 2s infinite;
+}
+.cover-dot:nth-child(2) { animation-delay: 0.3s; }
+.cover-dot:nth-child(3) { animation-delay: 0.6s; }
+
+@keyframes pls {
+  0%,100% { transform: scale(1); opacity: .4; }
+  50%     { transform: scale(1.5); opacity: 1; }
+}
+
+/* Sign-out button */
+.signout-btn {
+  position: absolute;
+  top: 16px; right: 16px;
+  z-index: 10;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 16px; border-radius: 100px;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px; font-weight: 600;
+  background: rgba(255,255,255,.9);
+  color: #DC2626;
+  border: 1.5px solid rgba(255,255,255,.5);
+  cursor: pointer;
+  transition: all .18s;
+  white-space: nowrap;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.signout-btn:hover {
+  background: #FFFFFF;
+  box-shadow: 0 4px 16px rgba(0,0,0,.15);
+  transform: translateY(-1px);
+}
+
+/* Identity block */
+.cover-identity {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  padding: 0 36px 24px;
+  display: flex; align-items: flex-end; gap: 18px;
+}
+
+/* Eyebrow inside cover — matches home's .eyebrow but white */
+.profile-eyebrow {
+  display: block;
+  font-size: 10px; font-weight: 800;
+  text-transform: uppercase; letter-spacing: .1em;
+  color: rgba(255,255,255,.4);
+  margin-bottom: 4px;
+}
+
+/* Avatar */
+.avatar-wrap {
+  position: relative; flex-shrink: 0;
+}
+.avatar-img,
+.avatar-fallback {
+  width: 84px; height: 84px;
+  border-radius: 50%;
+  border: 3.5px solid #FFFFFF;
+  box-shadow: 0 6px 24px rgba(0,0,0,.3);
+  object-fit: cover; display: block;
+  transition: transform .3s cubic-bezier(.34,1.2,.64,1);
+}
+.avatar-wrap:hover .avatar-img,
+.avatar-wrap:hover .avatar-fallback { transform: scale(1.05); }
+.avatar-fallback {
+  background: linear-gradient(135deg, #444440, #111110);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Inter', sans-serif;
+  font-size: 26px; font-weight: 800; color: #FFFFFF;
+  letter-spacing: 1px;
+}
+.camera-btn {
+  position: absolute; bottom: 3px; right: 3px;
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--ink); border: 2.5px solid #FFFFFF;
+  display: flex; align-items: center; justify-content: center;
+  color: #FFFFFF; cursor: pointer;
+  transition: all .18s;
+  box-shadow: 0 2px 8px rgba(0,0,0,.25);
+}
+.camera-btn:hover { background: var(--green); transform: scale(1.15); }
+.online-indicator {
+  position: absolute; top: 4px; right: 4px;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--green);
+  border: 2.5px solid #FFFFFF;
+  box-shadow: 0 2px 6px rgba(22,163,74,.4);
+}
+
+/* Name & badges */
+.identity-text { padding-bottom: 4px; min-width: 0; }
+.identity-name {
+  font-family: 'Inter', sans-serif;
+  font-size: 24px; font-weight: 900; color: #FFFFFF;
+  line-height: 1.15;
+  text-shadow: 0 2px 12px rgba(0,0,0,.35);
+  margin: 0 0 6px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  letter-spacing: -.03em;
+}
+.identity-badges { display: flex; flex-wrap: wrap; gap: 8px; }
+.badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 14px; border-radius: 100px;
+  font-family: 'Inter', sans-serif;
+  font-size: 11px; font-weight: 600; letter-spacing: .03em;
+}
+.badge-role {
+  background: rgba(22,163,74,.25);
+  color: #FFFFFF;
+  border: 1px solid rgba(22,163,74,.4);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.badge-city {
+  background: rgba(255,255,255,.1);
+  color: rgba(255,255,255,.85);
+  border: 1px solid rgba(255,255,255,.2);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+/* ── STATS STRIP — mirrors home's .stats-row exactly ── */
+.profile-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-top: 1.5px solid var(--border);
+}
+.profile-stat {
+  padding: 22px 0;
+  text-align: center;
+  border-right: 1.5px solid var(--border);
+  transition: background .2s;
+  cursor: default;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.profile-stat:last-child { border-right: none; }
+.profile-stat:hover { background: var(--card2); }
+.profile-stat-value {
+  font-size: 30px; font-weight: 900;
+  letter-spacing: -.05em; color: var(--ink);
+}
+.profile-stat-label {
+  font-size: 10px; font-weight: 600;
+  color: var(--ink3);
+  text-transform: uppercase; letter-spacing: .08em;
+}
+
+/* ── FORM BODY — uses home's .card-pad ── */
+/* .card-pad is defined in home.css as padding: 36px */
+
+/* Section header — matches home's eyebrow + .section-split */
+.profile-section-header {
+  display: flex; align-items: center; gap: 14px;
+  margin-bottom: 24px;
+}
+.section-line {
+  flex: 1; height: 1.5px;
+  background: var(--border);
+  border-radius: 1px;
+}
+
+/* Alerts */
+.profile-alert {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px; border-radius: var(--r-sm);
+  font-size: 13px; font-weight: 500;
+  margin-bottom: 24px;
+  animation: fadeSlide .25s ease;
+}
+.profile-alert--error  { background: #FEF2F2; color: #DC2626; border: 1.5px solid #FCA5A5; }
+.profile-alert--success { background: var(--green-bg); color: var(--green); border: 1.5px solid var(--green-bd); }
+
+@keyframes fadeSlide {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Fields grid */
+.fields-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 18px; margin-bottom: 28px;
+}
+.field-full { grid-column: 1 / -1; }
+.field-group { display: flex; flex-direction: column; }
+
+/* Field labels — same as home's .stat-lbl uppercase style */
+.field-label {
+  font-size: 10px; font-weight: 700;
+  color: var(--ink3);
+  text-transform: uppercase; letter-spacing: .08em;
+  margin-bottom: 8px;
+}
+
+/* Inputs — consistent with home's card surfaces */
+.field-input {
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 11px 16px;
+  font-size: 14px;
+  font-family: 'Inter', sans-serif;
+  color: var(--ink);
+  background: var(--card2);
+  outline: none; width: 100%;
+  box-sizing: border-box; appearance: none;
+  transition: border-color .18s, box-shadow .18s, background .18s;
+}
+.field-input::placeholder { color: var(--ink4); }
+.field-input:focus {
+  border-color: var(--border2);
+  background: var(--card);
+  box-shadow: 0 0 0 3px rgba(17,17,16,.04);
+}
+select.field-input {
+  cursor: pointer;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2388887E' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
+  padding-right: 40px;
+}
+
+/* Map button — matches home's .btn-out style */
+.show-map-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 16px; border-radius: 100px;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px; font-weight: 600;
+  background: transparent;
+  color: var(--ink2);
+  border: 1.5px solid var(--border2);
+  cursor: pointer;
+  margin-top: 10px; width: fit-content;
+  transition: all .18s;
+}
+.show-map-btn:hover { border-color: var(--ink3); transform: translateY(-1px); }
+
+/* Form footer */
+.form-footer {
+  display: flex; align-items: center;
+  justify-content: space-between;
+  padding-top: 20px;
+  border-top: 1.5px solid var(--border);
+  gap: 16px;
+}
+.footer-hint {
+  font-size: 12px;
+  color: var(--ink3);
+  flex: 1;
+}
+
+/* Save button — reuses home's .btn-cta exactly */
+.profile-save-btn {
+  font-size: 13px;
+  padding: 11px 24px;
+}
+.profile-save-btn:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Spinner */
+.spinner {
+  width: 28px; height: 28px; border-radius: 50%;
+  border: 2.5px solid var(--border);
+  border-top-color: var(--ink);
+  animation: spin 0.7s linear infinite;
+}
+.btn-spinner {
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.3);
+  border-top-color: #FFFFFF;
+  animation: spin 0.7s linear infinite;
+  display: inline-block;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── MAP MODAL ── */
+.map-modal-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(17,17,16,.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000; padding: 24px;
+  animation: modalFadeIn .2s ease both;
+}
+@keyframes modalFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.map-modal-content {
+  background: var(--card);
+  border-radius: var(--r);
+  padding: 32px;
+  width: 100%; max-width: 700px;
+  box-shadow: 0 32px 80px rgba(0,0,0,.14);
+  border: 1.5px solid var(--border);
+  position: relative;
+  animation: modalPopIn .3s cubic-bezier(.34,1.2,.64,1) both;
+}
+@keyframes modalPopIn {
+  from { opacity: 0; transform: scale(.96) translateY(12px); }
+  to   { opacity: 1; transform: none; }
+}
+.map-modal-header {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  margin-bottom: 22px;
+}
+.map-modal-title {
+  font-family: 'Inter', sans-serif;
+  font-size: 18px; font-weight: 800;
+  color: var(--ink); margin: 0;
+  letter-spacing: -.03em;
+}
+.map-modal-close-btn {
+  width: 34px; height: 34px; border-radius: 10px;
+  background: var(--card2); border: 1.5px solid var(--border);
+  font-size: 20px; cursor: pointer;
+  color: var(--ink3);
+  display: flex; align-items: center; justify-content: center;
+  transition: all .18s; font-family: 'Inter', sans-serif; line-height: 1;
+}
+.map-modal-close-btn:hover { background: var(--card3); color: var(--ink); }
+.map-placeholder {
+  width: 100%; height: 400px;
+  background: var(--card2);
+  border-radius: var(--r-sm);
+  border: 1.5px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--ink3); overflow: hidden;
+}
+
+/* ── RESPONSIVE — mirrors home.css breakpoints ── */
+@media (max-width: 700px) {
+  .profile-shell   { margin: 10px auto 40px; }
+  .cover-identity  { padding: 0 24px 18px; gap: 14px; }
+  .avatar-img,
+  .avatar-fallback { width: 66px; height: 66px; }
+  .avatar-fallback { font-size: 18px; }
+  .identity-name   { font-size: 18px; }
+  .fields-grid     { grid-template-columns: 1fr; gap: 14px; }
+  .form-footer     { flex-direction: column; align-items: stretch; gap: 14px; }
+  .footer-hint     { text-align: center; }
+  .profile-save-btn { width: 100%; justify-content: center; padding: 13px; }
+  .card-pad        { padding: 24px; }
+}
+
+@media (max-width: 430px) {
+  .profile-shell   { padding: 0; margin: 0 0 40px; }
+  .profile-card    { border-radius: 0; box-shadow: none; border: none; }
+  .profile-cover   { height: 190px; }
+  .cover-circle-3  { display: none; }
+  .cover-identity  { padding: 0 16px 14px; gap: 10px; }
+  .avatar-img,
+  .avatar-fallback { width: 56px; height: 56px; }
+  .avatar-fallback { font-size: 16px; }
+  .camera-btn      { width: 24px; height: 24px; }
+  .online-indicator { width: 10px; height: 10px; top: 2px; right: 2px; }
+  .identity-name   { font-size: 16px; }
+  .signout-label   { display: none; }
+  .signout-btn     { padding: 7px 12px; font-size: 11px; top: 10px; right: 10px; }
+  .profile-stats   { grid-template-columns: repeat(3, 1fr); }
+  .profile-stat    { padding: 12px 8px; }
+  .profile-stat-value { font-size: 20px; }
+  .profile-stat-label  { font-size: 9px; }
+  .card-pad        { padding: 20px 16px; }
+  .field-input     { padding: 10px 14px; font-size: 13px; }
+  .profile-save-btn { font-size: 12.5px; padding: 11px; }
+}
