@@ -4,7 +4,7 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg:       #E8E8E4;
+  --bg:       rgb(224, 228, 221);
   --card:     #FFFFFF;
   --card2:    #F2F2EE;
   --card3:    #EAEAE6;

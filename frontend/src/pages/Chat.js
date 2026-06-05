@@ -4,11 +4,11 @@ import { FaPaperPlane, FaUserCircle, FaArrowLeft, FaFileInvoiceDollar, FaCheck, 
 import jsPDF from "jspdf";
 import io from "socket.io-client"
 import html2canvas from "html2canvas"; // Replace autoTable with this;
-import "./Chat.css";
+import "./Chat.css"; // aligned with dashboard.css & home.css design system
 
 // 1. IMPROVEMENT: Use environment variables for API endpoints
 const ENDPOINT = import.meta.env.VITE_API_URL || "http://localhost:5000";
-const EMPTY_ITEM = { description: "", qty: 1, unitPrice: "" };
+const EMPTY_ITEM = { description: "", qty: 1, unitPrice: "", tvaRate: "19" }; // TVA 19% standard Tunisia
 
 const resolveImage = (img) => {
   if (!img) return null;
@@ -26,8 +26,18 @@ export default function Chat() {
   const [pdfData, setPdfData] = useState(null);
   const [isTyping, setIsTyping] = useState(false);
   const [showQuotationModal, setShowQuotationModal] = useState(false);
-  const [quotation, setQuotation] = useState({ items: [{ ...EMPTY_ITEM }], duration: "", startDate: "" });
+  const [quotation, setQuotation] = useState({
+    items: [{ ...EMPTY_ITEM }],
+    duration: "",
+    startDate: "",
+    validUntil: "",
+    paymentTerms: "À réception",
+    providerMatricule: "",
+    providerAddress: "",
+  });
   const [editingMessageId, setEditingMessageId] = useState(null);
+  const [providerServices, setProviderServices] = useState([]);
+  const [selectedServiceId, setSelectedServiceId] = useState("");
 
   const messagesEndRef = useRef(null);
   const currentChatRef = useRef(currentChat);
@@ -41,15 +51,33 @@ export default function Chat() {
   const calcTotal = (items) =>
     items.reduce((sum, it) => sum + (parseFloat(it.unitPrice) || 0) * (parseInt(it.qty) || 1), 0);
 
+  const calcTVA = (items) =>
+    items.reduce((sum, it) => {
+      const ht = (parseFloat(it.unitPrice) || 0) * (parseInt(it.qty) || 1);
+      return sum + ht * ((parseFloat(it.tvaRate) || 0) / 100);
+    }, 0);
+
+  const calcTTC = (items) => calcTotal(items) + calcTVA(items);
+
   const normalizeItems = (data) =>
     (data.items && data.items.length > 0)
       ? data.items
       : [{ description: data.description, qty: 1, unitPrice: data.amount }];
 
   const openModalForNew = () => {
-    setQuotation({ items: [{ ...EMPTY_ITEM }], duration: "", startDate: "" });
+    setQuotation({
+      items: [{ ...EMPTY_ITEM }],
+      duration: "",
+      startDate: "",
+      validUntil: "",
+      paymentTerms: "À réception",
+      providerMatricule: "",
+      providerAddress: "",
+    });
     setEditingMessageId(null);
+    setSelectedServiceId("");
     setShowQuotationModal(true);
+    fetchProviderServices();
   };
 
   const openModalForEdit = (data, msgId) => {
@@ -57,9 +85,15 @@ export default function Chat() {
       items: normalizeItems(data),
       duration: data.duration ?? "",
       startDate: data.startDate ?? "",
+      validUntil: data.validUntil ?? "",
+      paymentTerms: data.paymentTerms ?? "À réception",
+      providerMatricule: data.providerMatricule ?? "",
+      providerAddress: data.providerAddress ?? "",
     });
     setEditingMessageId(msgId);
+    setSelectedServiceId("");
     setShowQuotationModal(true);
+    fetchProviderServices();
   };
 
   const updateItem = (idx, field, value) => {
@@ -75,7 +109,35 @@ export default function Chat() {
   const removeItem = (idx) =>
     setQuotation(prev => ({ ...prev, items: prev.items.filter((_, i) => i !== idx) }));
 
-  // ── fetch / socket ────────────────────────────────────────────────────────
+  // Fetches the logged-in provider's services to pre-populate quotation items
+  const fetchProviderServices = useCallback(async () => {
+    if (!session?.user || session.user.role !== "provider") return;
+    try {
+      const res = await fetch(
+        `${ENDPOINT}/chat/provider-services?providerId=${session.user.id}`,
+        { headers: { Authorization: `Bearer ${session.token}` } }
+      );
+      if (res.ok) setProviderServices(await res.json());
+    } catch (err) {
+      console.error("Failed to fetch provider services:", err);
+    }
+  }, [session]);
+
+  // When the provider picks a service from the dropdown, pre-fill the first
+  // quotation line with that service's title and price.
+  const handleServiceSelect = (serviceId) => {
+    setSelectedServiceId(serviceId);
+    if (!serviceId) return;
+    const svc = providerServices.find(s => String(s.id) === String(serviceId));
+    if (!svc) return;
+    setQuotation(prev => ({
+      ...prev,
+      items: [
+        { description: svc.title, qty: 1, unitPrice: String(svc.price ?? ""), tvaRate: "19" },
+        ...prev.items.slice(1),   // keep any extra lines the provider already added
+      ],
+    }));
+  };
 
   const fetchConversations = useCallback(async () => {
     if (!session?.user) return;
@@ -200,13 +262,22 @@ export default function Chat() {
     e.preventDefault();
     if (!quotation.items.length || !quotation.duration || !currentChat || !socket) return;
 
-    const total = calcTotal(quotation.items);
+    const totalHT  = calcTotal(quotation.items);
+    const totalTVA = calcTVA(quotation.items);
+    const totalTTC = calcTTC(quotation.items);
+
     const content = JSON.stringify({
       type: "quotation",
       items: quotation.items,
       duration: quotation.duration,
       startDate: quotation.startDate,
-      amount: total.toFixed(2),
+      validUntil: quotation.validUntil,
+      paymentTerms: quotation.paymentTerms,
+      providerMatricule: quotation.providerMatricule,
+      providerAddress: quotation.providerAddress,
+      amountHT:  totalHT.toFixed(2),
+      amountTVA: totalTVA.toFixed(2),
+      amount:    totalTTC.toFixed(2), // TTC — kept as "amount" for backward compat
       status: "pending",
     });
 
@@ -279,7 +350,7 @@ export default function Chat() {
     if (!element) return;
 
     // Reveal hidden template for capture
-    element.style.display = "block";
+    element.style.display = "flex";
 
     try {
       const canvas = await html2canvas(element, {
@@ -314,75 +385,60 @@ export default function Chat() {
         const items    = normalizeItems(data);
 
         return (
-          // 3. IMPROVEMENT: Refactored In-Chat Card UI
-          <div className={`quotation-card modern-ui ${isOwn ? 'sent' : 'received'} status-${data.status}`} style={{
-            background: 'var(--card)',
-            borderRadius: '12px',
-            overflow: 'hidden',
-            boxShadow: '0 4px 15px rgba(0,0,0,0.08)',
-            border: '1px solid var(--border)',
-            minWidth: '280px'
-          }}>
-            <div style={{ background: 'var(--ink)', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ color: '#fff', fontSize: '11px', fontWeight: 700, letterSpacing: '0.5px' }}>
-                <FaFileInvoiceDollar style={{ marginRight: '6px' }} /> QUOTATION
+          <div className={`quotation-card ${isOwn ? 'sent' : 'received'} status-${data.status}`}>
+            <div className="quotation-card-header">
+              <span className="quotation-card-label">
+                <FaFileInvoiceDollar /> QUOTATION
               </span>
-              <span className={`status-pill ${data.status}`} style={{
-                fontSize: '10px',
-                padding: '2px 8px',
-                borderRadius: '20px',
-                background: data.status === 'accepted' ? 'var(--success)' : (data.status === 'declined' ? 'var(--danger)' : 'var(--accent)'),
-                color: '#fff',
-                fontWeight: 600
-              }}>
+              <span className={`status-pill ${data.status}`}>
                 {data.status.toUpperCase()}
               </span>
             </div>
 
-            <div style={{ padding: '16px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '15px', fontSize: '12px' }}>
-                <div style={{ color: 'var(--ink-light)' }}>
-                  <FaCalendarAlt style={{ marginRight: '5px' }} /> {data.startDate}
+            <div className="quotation-card-body">
+              <div className="quotation-meta-row">
+                <div className="quotation-meta-item">
+                  <FaCalendarAlt /> {data.startDate}
                 </div>
-                <div style={{ color: 'var(--ink-light)', textAlign: 'right' }}>
-                  <FaClock style={{ marginRight: '5px' }} /> {data.duration}
+                <div className="quotation-meta-item">
+                  <FaClock /> {data.duration}
                 </div>
               </div>
 
-              <div style={{ maxHeight: '100px', overflowY: 'auto', marginBottom: '15px' }}>
+              <div className="quotation-items-list">
                 {items.map((it, i) => (
-                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', padding: '4px 0', borderBottom: '1px solid var(--border-light)' }}>
-                    <span>{it.description} <small style={{ opacity: 0.6 }}>x{it.qty}</small></span>
-                    <span style={{ fontWeight: 600 }}>{(it.qty * (it.unitPrice || it.amount)).toFixed(2)} TND</span>
+                  <div key={i} className="quotation-line-item">
+                    <span>{it.description} <small>x{it.qty}</small></span>
+                    <span className="quotation-line-price">{(it.qty * (it.unitPrice || it.amount)).toFixed(2)} TND</span>
                   </div>
                 ))}
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '10px', borderTop: '2px solid var(--cream-alt)' }}>
-                <span style={{ fontSize: '14px', fontWeight: 600 }}>Total</span>
-                <span style={{ fontSize: '18px', fontWeight: 800, color: 'var(--accent)' }}>{parseFloat(data.amount).toFixed(2)} TND</span>
+              <div className="quotation-total-row">
+                <span className="quotation-total-label">Total</span>
+                <span className="quotation-total-amount">{parseFloat(data.amount).toFixed(2)} TND</span>
               </div>
 
-              <div style={{ marginTop: '15px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+              <div className="quotation-actions">
                 {data.status === "pending" && !isOwn && isClient && (
                   <>
-                    <button onClick={() => handleQuotationResponse(msg, 'accepted')} className="btn-accept" style={{ flex: 1 }}>
+                    <button onClick={() => handleQuotationResponse(msg, 'accepted')} className="btn-accept">
                       <FaCheck /> Accept
                     </button>
-                    <button onClick={() => handleQuotationResponse(msg, 'declined')} className="btn-decline" style={{ flex: 1 }}>
+                    <button onClick={() => handleQuotationResponse(msg, 'declined')} className="btn-decline">
                       <FaTimes /> Decline
                     </button>
                   </>
                 )}
-                
+
                 {(data.status === "accepted" || (data.status === "pending" && isClient)) && (
-                  <button onClick={() => generateQuotationPDF(data, msg)} className="btn-download-pdf" style={{ width: '100%', justifyContent: 'center', background: 'var(--ink)', color: '#fff' }}>
-                    <FaFilePdf style={{ marginRight: '8px' }} /> Download PDF
+                  <button onClick={() => generateQuotationPDF(data, msg)} className="btn-download-pdf">
+                    <FaFilePdf /> Download PDF
                   </button>
                 )}
 
                 {data.status === "declined" && isOwn && (
-                  <button onClick={() => openModalForEdit(data, msg.id)} className="btn-update-quotation" style={{ width: '100%' }}>
+                  <button onClick={() => openModalForEdit(data, msg.id)} className="btn-update-quotation">
                     <FaEdit /> Resubmit Quotation
                   </button>
                 )}
@@ -416,80 +472,53 @@ export default function Chat() {
   // ── render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="chat-container db-card" style={{ height: '100%', display: 'flex', padding: 0, overflow: 'hidden', border: '1px solid var(--border)' }}>
-      <style>{`
-        .conversations-list::-webkit-scrollbar,
-        .messages-area::-webkit-scrollbar {
-          display: none;
-        }
-        .conversations-list,
-        .messages-area {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-        .btn-accept { background: var(--success); color: white; border: none; padding: 8px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; }
-        .btn-decline { background: var(--danger); color: white; border: none; padding: 8px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; }
-        .btn-download-pdf { display: flex; align-items: center; border: 1px solid var(--border); padding: 8px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; margin-top: 5px; }
-      `}</style>
+    <div className="chat-container">
       
-      {/* Sidebar and rest of the UI stays largely the same but uses the refactored logic */}
+      {/* Sidebar */}
       <div className={`chat-sidebar ${currentChat ? "mobile-hidden" : ""}`}>
-        <div className="sidebar-header" style={{ padding: '20px', borderBottom: '1px solid var(--border)' }}>
-          <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, fontFamily: 'var(--font-display)' }}>Messages</h3>
+        <div className="sidebar-header">
+          <h3>Messages</h3>
         </div>
-        <div className="conversations-list" style={{ flex: 1, overflowY: 'auto' }}>
+        <div className="conversations-list">
           {conversations.map((chat) => (
             <div
               key={chat.id}
               className={`conversation-item ${currentChat?.id === chat.id ? "active" : ""}`}
               onClick={() => setCurrentChat(chat)}
-              style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '12px', 
-                padding: '12px 20px', 
-                cursor: 'pointer',
-                borderBottom: '1px solid var(--border)',
-                backgroundColor: currentChat?.id === chat.id ? 'var(--cream-alt)' : 'transparent',
-                transition: 'background 0.2s'
-              }}
             >
-              <div className="db-booking-avatar" style={{ width: 44, height: 44, fontSize: 14, flexShrink: 0 }}>
+              <div className="db-booking-avatar" style={{ width: 44, height: 44 }}>
                 {chat.other_user_image
                   ? <img src={resolveImage(chat.other_user_image)} alt="" className="db-avatar-img" onError={e => e.target.style.display = 'none'} />
                   : (chat.other_user_name || "?").split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()
                 }
               </div>
               <div className="conversation-info">
-                <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: 'var(--ink)' }}>{chat.other_user_name}</h4>
-                <p style={{ margin: 0, fontSize: '12.5px', color: 'var(--ink-light)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {getLastMessage(chat.last_message) || "No messages yet"}
-                </p>
+                <h4>{chat.other_user_name}</h4>
+                <p>{getLastMessage(chat.last_message) || "No messages yet"}</p>
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      <div className={`chat-main ${!currentChat ? "mobile-hidden" : ""}`} style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--card)' }}>
+      <div className={`chat-main ${!currentChat ? "mobile-hidden" : ""}`}>
         {currentChat ? (
           <>
-            <div className="chat-header" style={{ padding: '15px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '15px' }}>
+            <div className="chat-header">
               <button className="mobile-back-btn" onClick={() => setCurrentChat(null)}><FaArrowLeft /></button>
-              <div className="db-booking-avatar" style={{ width: 36, height: 36, fontSize: 12 }}>
+              <div className="db-booking-avatar" style={{ width: 36, height: 36 }}>
                 {currentChat.other_user_image
                   ? <img src={resolveImage(currentChat.other_user_image)} alt="" className="db-avatar-img" />
                   : (currentChat.other_user_name || "?").split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()
                 }
               </div>
               <div style={{ flex: 1 }}>
-                <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 700, fontFamily: 'var(--font-display)' }}>{currentChat.other_user_name}</h4>
-                <span style={{ fontSize: '11px', color: 'var(--success)', fontWeight: 500 }}>Online</span>
+                <h4>{currentChat.other_user_name}</h4>
+                <span className="online-status">Online</span>
               </div>
               {session.user.role === "provider" && canSendOrUpdate && (
                 <button
                   className="db-cta"
-                  style={{ padding: '8px 14px', fontSize: '12.5px' }}
                   onClick={() => existingQuotationMsg
                     ? openModalForEdit(existingQuotationData, existingQuotationMsg.id)
                     : openModalForNew()
@@ -501,15 +530,16 @@ export default function Chat() {
               )}
             </div>
 
-            <div className="messages-area" style={{ flex: 1, overflowY: 'auto', padding: '20px', display: "flex", flexDirection: "column", gap: "10px", background: 'var(--cream-alt)' }}>
+            <div className="messages-area">
               {messages.map((msg) => {
                 const isQuotation = (() => {
                   try { return JSON.parse(msg.content).type === "quotation"; } catch (e) { return false; }
                 })();
+                const isSent = String(msg.sender_id) === String(session.user?.id);
 
                 if (isQuotation) {
                   return (
-                    <div key={msg.id} className="quotation-msg-wrapper" style={{ alignSelf: String(msg.sender_id) === String(session.user?.id) ? "flex-end" : "flex-start", marginBottom: '15px' }}>
+                    <div key={msg.id} className="quotation-msg-wrapper" style={{ alignSelf: isSent ? "flex-end" : "flex-start" }}>
                       {renderMessageContent(msg)}
                     </div>
                   );
@@ -518,22 +548,10 @@ export default function Chat() {
                 return (
                   <div
                     key={msg.id}
-                    className={`message-bubble ${String(msg.sender_id) === String(session.user?.id) ? "sent" : "received"}`}
-                    style={{
-                      alignSelf: String(msg.sender_id) === String(session.user?.id) ? "flex-end" : "flex-start",
-                      maxWidth: "75%", 
-                      wordBreak: "break-word",
-                      padding: '10px 14px',
-                      borderRadius: String(msg.sender_id) === String(session.user?.id) ? '16px 16px 2px 16px' : '2px 16px 16px 16px',
-                      fontSize: '13.5px',
-                      backgroundColor: String(msg.sender_id) === String(session.user?.id) ? 'var(--ink)' : '#fff',
-                      color: String(msg.sender_id) === String(session.user?.id) ? '#fff' : 'var(--ink)',
-                      boxShadow: '0 2px 5px rgba(0,0,0,0.05)',
-                      border: String(msg.sender_id) === String(session.user?.id) ? 'none' : '1px solid var(--border)'
-                    }}
+                    className={`message-bubble ${isSent ? "sent" : "received"}`}
                   >
                     {msg.content}
-                    <div style={{ fontSize: '10px', opacity: 0.6, marginTop: '4px', textAlign: 'right' }}>
+                    <div className="message-time">
                       {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </div>
                   </div>
@@ -541,26 +559,25 @@ export default function Chat() {
               })}
 
               {isTyping && (
-                <div className="message-bubble received typing-indicator" style={{ alignSelf: "flex-start" }}>
+                <div className="message-bubble received typing-indicator">
                   <span></span><span></span><span></span>
                 </div>
               )}
               <div ref={messagesEndRef} />
             </div>
 
-            <form className="chat-input-area" onSubmit={handleSendMessage} style={{ padding: '15px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: '10px', background: 'var(--card)' }}>
+            <form className="chat-input-area" onSubmit={handleSendMessage}>
               <input
                 type="text"
                 placeholder="Type a message..."
                 value={newMessage}
                 onChange={(e) => { setNewMessage(e.target.value); handleTyping(); }}
-                style={{ flex: 1, padding: '10px 16px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '14px', outline: 'none', background: 'var(--card)', color: 'var(--ink)' }}
               />
-              <button type="submit" className="db-cta" style={{ borderRadius: '8px', width: '42px', padding: 0, justifyContent: 'center' }}><FaPaperPlane /></button>
+              <button type="submit" className="db-cta"><FaPaperPlane /></button>
             </form>
           </>
         ) : (
-          <div className="no-chat-selected" style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', color: 'var(--ink-light)' }}>
+          <div className="no-chat-selected">
             <h3>Select a conversation to start chatting</h3>
           </div>
         )}
@@ -577,33 +594,112 @@ export default function Chat() {
               </button>
             </div>
             <form onSubmit={handleSendQuotation}>
-              <div className="db-form-group">
-                <label className="db-form-label">Start Date</label>
-                <input
-                  className="db-form-input"
-                  type="date"
-                  value={quotation.startDate}
-                  onChange={(e) => setQuotation(prev => ({ ...prev, startDate: e.target.value }))}
-                  min={new Date().toISOString().split('T')[0]}
-                  required
-                />
-              </div>
-              <div className="db-form-group">
-                <label className="db-form-label">Estimated Duration</label>
-                <input
-                  className="db-form-input"
-                  type="text"
-                  value={quotation.duration}
-                  onChange={(e) => setQuotation(prev => ({ ...prev, duration: e.target.value }))}
-                  placeholder="e.g. 2 hours, 3 days..."
-                  required
-                />
+
+              {/* ── Service selector (providers only) ── */}
+              {providerServices.length > 0 && (
+                <div className="db-form-group" style={{ marginBottom: '16px' }}>
+                  <label className="db-form-label">Pre-fill from one of your services</label>
+                  <select
+                    className="db-form-input"
+                    value={selectedServiceId}
+                    onChange={(e) => handleServiceSelect(e.target.value)}
+                  >
+                    <option value="">— Select a service to pre-fill —</option>
+                    {providerServices.map(svc => (
+                      <option key={svc.id} value={svc.id}>
+                        {svc.title}{svc.price != null ? ` — ${parseFloat(svc.price).toFixed(3)} TND` : ""}
+                      </option>
+                    ))}
+                  </select>
+                  <small style={{ color: 'var(--color-text-muted, #888)', fontSize: '11px', marginTop: '4px', display: 'block' }}>
+                    Selecting a service fills in the first line item. You can still edit all fields freely.
+                  </small>
+                </div>
+              )}
+
+              {/* Provider fiscal info */}
+              <div className="db-form-row">
+                <div className="db-form-group">
+                  <label className="db-form-label">Matricule Fiscal</label>
+                  <input
+                    className="db-form-input"
+                    type="text"
+                    value={quotation.providerMatricule}
+                    onChange={(e) => setQuotation(prev => ({ ...prev, providerMatricule: e.target.value }))}
+                    placeholder="ex: 1234567A/M/000"
+                  />
+                </div>
+                <div className="db-form-group">
+                  <label className="db-form-label">Adresse du prestataire</label>
+                  <input
+                    className="db-form-input"
+                    type="text"
+                    value={quotation.providerAddress}
+                    onChange={(e) => setQuotation(prev => ({ ...prev, providerAddress: e.target.value }))}
+                    placeholder="Ville, Gouvernorat"
+                  />
+                </div>
               </div>
 
+              {/* Dates */}
+              <div className="db-form-row">
+                <div className="db-form-group">
+                  <label className="db-form-label">Date de début</label>
+                  <input
+                    className="db-form-input"
+                    type="date"
+                    value={quotation.startDate}
+                    onChange={(e) => setQuotation(prev => ({ ...prev, startDate: e.target.value }))}
+                    min={new Date().toISOString().split('T')[0]}
+                    required
+                  />
+                </div>
+                <div className="db-form-group">
+                  <label className="db-form-label">Valable jusqu'au</label>
+                  <input
+                    className="db-form-input"
+                    type="date"
+                    value={quotation.validUntil}
+                    onChange={(e) => setQuotation(prev => ({ ...prev, validUntil: e.target.value }))}
+                    min={new Date().toISOString().split('T')[0]}
+                  />
+                </div>
+              </div>
+
+              {/* Duration + Payment */}
+              <div className="db-form-row">
+                <div className="db-form-group">
+                  <label className="db-form-label">Durée estimée</label>
+                  <input
+                    className="db-form-input"
+                    type="text"
+                    value={quotation.duration}
+                    onChange={(e) => setQuotation(prev => ({ ...prev, duration: e.target.value }))}
+                    placeholder="ex: 2 heures, 3 jours..."
+                    required
+                  />
+                </div>
+                <div className="db-form-group">
+                  <label className="db-form-label">Conditions de paiement</label>
+                  <select
+                    className="db-form-input"
+                    value={quotation.paymentTerms}
+                    onChange={(e) => setQuotation(prev => ({ ...prev, paymentTerms: e.target.value }))}
+                  >
+                    <option>À réception</option>
+                    <option>30% à la commande, solde à la livraison</option>
+                    <option>50% à la commande, 50% à la livraison</option>
+                    <option>Paiement intégral à l'avance</option>
+                    <option>30 jours date de facture</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Line items with TVA per row */}
               <div className="db-form-group">
-                <label className="db-form-label">Line Items</label>
+                <label className="db-form-label">Lignes de prestation</label>
                 {quotation.items.map((item, idx) => (
-                  <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1fr 60px 90px 32px', gap: '6px', marginBottom: '8px', alignItems: 'center' }}>
+                  <div key={idx} className="quotation-item-row">
                     <input
                       className="db-form-input"
                       type="text"
@@ -615,7 +711,7 @@ export default function Chat() {
                     <input
                       className="db-form-input"
                       type="number"
-                      placeholder="Qty"
+                      placeholder="Qté"
                       min="1"
                       value={item.qty}
                       onChange={(e) => updateItem(idx, 'qty', e.target.value)}
@@ -624,91 +720,236 @@ export default function Chat() {
                     <input
                       className="db-form-input"
                       type="number"
-                      placeholder="Price"
+                      placeholder="P.U. HT"
                       min="0"
-                      step="0.01"
+                      step="0.001"
                       value={item.unitPrice}
                       onChange={(e) => updateItem(idx, 'unitPrice', e.target.value)}
                       required
                     />
+                    <select
+                      className="db-form-input"
+                      value={item.tvaRate ?? "19"}
+                      onChange={(e) => updateItem(idx, 'tvaRate', e.target.value)}
+                    >
+                      <option value="0">0%</option>
+                      <option value="7">7%</option>
+                      <option value="13">13%</option>
+                      <option value="19">19%</option>
+                    </select>
                     <button
                       type="button"
+                      className="btn-remove-item"
                       onClick={() => removeItem(idx)}
-                      style={{ background: 'none', border: 'none', color: '#e24b4a', cursor: 'pointer', padding: 0 }}
                       disabled={quotation.items.length === 1}
                     >
-                      <FaTrash size={13} />
+                      <FaTrash size={12} />
                     </button>
                   </div>
                 ))}
-                <button
-                  type="button"
-                  onClick={addItem}
-                  style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0', fontWeight: 600 }}
-                >
-                  <FaPlus size={11} /> Add item
+                <button type="button" className="btn-add-item" onClick={addItem}>
+                  <FaPlus size={11} /> Ajouter une ligne
                 </button>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px', marginBottom: '20px', fontSize: '16px', fontWeight: 700, color: 'var(--ink)' }}>
-                <span style={{ color: 'var(--ink-mid)', fontSize: '14px', fontWeight: 500 }}>Total:</span>
-                <span>{calcTotal(quotation.items).toFixed(2)} TND</span>
+              {/* HT / TVA / TTC */}
+              <div className="modal-totals-block">
+                <div className="modal-totals-row">
+                  <span>Total HT</span>
+                  <span>{calcTotal(quotation.items).toFixed(3)} TND</span>
+                </div>
+                <div className="modal-totals-row">
+                  <span>TVA</span>
+                  <span>{calcTVA(quotation.items).toFixed(3)} TND</span>
+                </div>
+                <div className="modal-totals-row modal-totals-ttc">
+                  <span>Total TTC</span>
+                  <span>{calcTTC(quotation.items).toFixed(3)} TND</span>
+                </div>
               </div>
 
               <div className="db-modal-actions">
-                <button type="submit" className="db-cta" style={{ width: '100%', justifyContent: 'center' }}>Send to Client</button>
+                <button type="submit" className="db-cta" style={{ width: '100%', justifyContent: 'center' }}>
+                  Envoyer au client
+                </button>
               </div>
             </form>
           </div>
         </div>
       )}
-      {/* ── CANVA PDF TEMPLATE (Hidden from UI) ── */}
+
+      {/* ── PDF TEMPLATE (hidden, captured by html2canvas) ── */}
       {pdfData && (
-  
-        <div ref={quotationRef} style={{ display: 'none', width: '800px', padding: '60px', background: '#FCFBF7', position: 'absolute', left: '-9999px', fontFamily: "'DM Sans', sans-serif" }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '4px solid #161629', paddingBottom: '30px', marginBottom: '40px' }}>
-            <div>
-              <h1 style={{ fontSize: '48px', margin: 0, color: '#161629', fontFamily: "'Sora', sans-serif", fontWeight: 800 }}>FIXHUB</h1>
-              <p style={{ color: '#D85A30', fontWeight: 700, letterSpacing: '2px', fontSize: '14px', marginTop: '5px' }}>OFFICIAL QUOTATION</p>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <p style={{ margin: 0, fontWeight: 700, fontSize: '15px', color: '#161629' }}>REF: #QT-{pdfData.id}</p>
-              <p style={{ margin: 0, opacity: 0.7, fontSize: '13px', color: '#161629' }}>Date: {new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+        <div ref={quotationRef} style={{
+          display: 'none', width: '794px', height: '1123px', padding: '0',
+          background: '#fff', position: 'absolute', left: '-9999px',
+          fontFamily: "'Inter', 'Helvetica Neue', Arial, sans-serif", color: '#111110',
+          flexDirection: 'column', justifyContent: 'space-between'
+        }}>
+
+          {/* ══ HEADER BAND ══ */}
+          <div style={{ background: '#111110', padding: '32px 52px 28px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+
+              {/* Left — provider identity */}
+              <div>
+                <div style={{ fontSize: '26px', fontWeight: 900, color: '#fff', letterSpacing: '-0.5px', lineHeight: 1.1 }}>
+                  {pdfData.providerName}
+                </div>
+                {pdfData.providerAddress && (
+                  <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginTop: '6px' }}>
+                    {pdfData.providerAddress}
+                  </div>
+                )}
+                {pdfData.providerMatricule && (
+                  <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginTop: '2px' }}>
+                    Matricule Fiscal : <span style={{ color: 'rgba(255,255,255,0.85)', fontWeight: 600 }}>{pdfData.providerMatricule}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Right — doc identity */}
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: 'rgba(255,255,255,0.4)', letterSpacing: '3px', textTransform: 'uppercase', marginBottom: '4px' }}>
+                  Devis de Prestation
+                </div>
+                <div style={{ fontSize: '28px', fontWeight: 900, color: '#fff', letterSpacing: '-1px', lineHeight: 1 }}>
+                  #QT-{pdfData.id}
+                </div>
+                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', marginTop: '6px' }}>
+                  Émis le {new Date().toLocaleDateString('fr-TN', { day: '2-digit', month: 'long', year: 'numeric' })}
+                </div>
+              </div>
+
             </div>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '40px' }}>
-            <div>
-              <p style={{ margin: '0 0 5px', fontSize: '12px', color: '#D85A30', fontWeight: 700, textTransform: 'uppercase' }}>From (Provider)</p>
-              <p style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: '#161629' }}>{pdfData.providerName}</p>
+          {/* ══ BODY ══ */}
+          <div style={{ padding: '36px 52px', flex: 1 }}>
+
+            {/* ── Client row ── */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '32px', paddingBottom: '24px', borderBottom: '1.5px solid #E8E8E4' }}>
+              <div style={{ width: '3px', height: '40px', background: '#111110', borderRadius: '2px', flexShrink: 0 }} />
+              <div>
+                <div style={{ fontSize: '9px', fontWeight: 800, color: '#88887E', letterSpacing: '2.5px', textTransform: 'uppercase', marginBottom: '4px' }}>
+                  Adressé à
+                </div>
+                <div style={{ fontSize: '16px', fontWeight: 800, color: '#111110' }}>{pdfData.clientName}</div>
+              </div>
             </div>
-            <div style={{ textAlign: 'right' }}>
-              <p style={{ margin: '0 0 5px', fontSize: '12px', color: '#D85A30', fontWeight: 700, textTransform: 'uppercase' }}>To (Client)</p>
-              <p style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: '#161629' }}>{pdfData.clientName}</p>
+
+            {/* ── Items table ── */}
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', marginBottom: '2px' }}>
+              <thead>
+                <tr style={{ background: '#111110', color: '#fff' }}>
+                  <th style={{ textAlign: 'left',   padding: '10px 14px', fontWeight: 700, letterSpacing: '0.4px' }}>DÉSIGNATION</th>
+                  <th style={{ textAlign: 'center', padding: '10px 10px', fontWeight: 700 }}>QTÉ</th>
+                  <th style={{ textAlign: 'right',  padding: '10px 10px', fontWeight: 700, whiteSpace: 'nowrap' }}>P.U. HT</th>
+                  <th style={{ textAlign: 'right',  padding: '10px 10px', fontWeight: 700 }}>TVA</th>
+                  <th style={{ textAlign: 'right',  padding: '10px 14px', fontWeight: 700, whiteSpace: 'nowrap' }}>TOTAL TTC</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pdfData.items.map((it, i) => {
+                  const pu  = parseFloat(it.unitPrice || it.amount) || 0;
+                  const qty = parseInt(it.qty) || 1;
+                  const rate = parseFloat(it.tvaRate || 0);
+                  const ht  = pu * qty;
+                  const tva = ht * rate / 100;
+                  const ttc = ht + tva;
+                  return (
+                    <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#F7F7F4', borderBottom: '1px solid #EBEBЕ7' }}>
+                      <td style={{ padding: '11px 14px', fontWeight: 500, color: '#111110' }}>{it.description}</td>
+                      <td style={{ textAlign: 'center', padding: '11px 10px', color: '#444440' }}>{qty}</td>
+                      <td style={{ textAlign: 'right',  padding: '11px 10px', color: '#444440' }}>{pu.toFixed(3)} TND</td>
+                      <td style={{ textAlign: 'right',  padding: '11px 10px', color: '#88887E' }}>{rate}%</td>
+                      <td style={{ textAlign: 'right',  padding: '11px 14px', fontWeight: 700, color: '#111110' }}>{ttc.toFixed(3)} TND</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+
+            {/* ── Totals ── */}
+            {(() => {
+              const totalHT  = pdfData.items.reduce((s, it) => s + (parseFloat(it.unitPrice || it.amount)||0) * (parseInt(it.qty)||1), 0);
+              const totalTVA = pdfData.items.reduce((s, it) => {
+                const ht = (parseFloat(it.unitPrice || it.amount)||0) * (parseInt(it.qty)||1);
+                return s + ht * (parseFloat(it.tvaRate||0) / 100);
+              }, 0);
+              const totalTTC = totalHT + totalTVA;
+              return (
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '32px' }}>
+                  <div style={{ width: '280px', border: '1.5px solid #E8E8E4', borderTop: 'none', borderRadius: '0 0 10px 10px', overflow: 'hidden' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 16px', borderBottom: '1px solid #E8E8E4', fontSize: '12px' }}>
+                      <span style={{ color: '#88887E' }}>Total HT</span>
+                      <span style={{ fontWeight: 600, color: '#111110' }}>{totalHT.toFixed(3)} TND</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 16px', borderBottom: '1px solid #E8E8E4', fontSize: '12px' }}>
+                      <span style={{ color: '#88887E' }}>TVA</span>
+                      <span style={{ fontWeight: 600, color: '#111110' }}>{totalTVA.toFixed(3)} TND</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 16px', background: '#111110' }}>
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: 'rgba(255,255,255,0.6)', letterSpacing: '1px', textTransform: 'uppercase' }}>Total TTC</span>
+                      <span style={{ fontSize: '15px', fontWeight: 900, color: '#fff', letterSpacing: '-0.5px' }}>{totalTTC.toFixed(3)} TND</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* ── Conditions row ── */}
+            {(pdfData.paymentTerms || pdfData.validUntil) && (
+              <div style={{ display: 'flex', gap: '12px', marginBottom: '32px' }}>
+                {pdfData.paymentTerms && (
+                  <div style={{ flex: 1, background: '#F7F7F4', borderRadius: '8px', padding: '12px 16px', borderLeft: '3px solid #C8C8C0' }}>
+                    <div style={{ fontSize: '9px', fontWeight: 800, color: '#88887E', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '5px' }}>Conditions de paiement</div>
+                    <div style={{ fontSize: '12px', fontWeight: 600, color: '#111110' }}>{pdfData.paymentTerms}</div>
+                  </div>
+                )}
+                {pdfData.validUntil && (
+                  <div style={{ flex: 1, background: '#F7F7F4', borderRadius: '8px', padding: '12px 16px', borderLeft: '3px solid #C8C8C0' }}>
+                    <div style={{ fontSize: '9px', fontWeight: 800, color: '#88887E', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '5px' }}>Devis valable jusqu'au</div>
+                    <div style={{ fontSize: '12px', fontWeight: 600, color: '#111110' }}>
+                      {new Date(pdfData.validUntil).toLocaleDateString('fr-TN', { day: '2-digit', month: 'long', year: 'numeric' })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── Signature block ── */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <div style={{ border: '1.5px solid #E8E8E4', borderRadius: '10px', padding: '16px 20px' }}>
+                <div style={{ fontSize: '9px', fontWeight: 800, color: '#88887E', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '44px' }}>
+                  Signature du Prestataire
+                </div>
+                <div style={{ borderTop: '1px solid #E8E8E4', paddingTop: '8px', fontSize: '11px', color: '#88887E' }}>
+                  {pdfData.providerName}
+                </div>
+              </div>
+              <div style={{ border: '1.5px solid #E8E8E4', borderRadius: '10px', padding: '16px 20px' }}>
+                <div style={{ fontSize: '9px', fontWeight: 800, color: '#88887E', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '6px' }}>
+                  Bon pour Accord
+                </div>
+                <div style={{ fontSize: '10px', color: '#ADADAA', marginBottom: '28px' }}>
+                  Mention manuscrite « Lu et approuvé »
+                </div>
+                <div style={{ borderTop: '1px solid #E8E8E4', paddingTop: '8px', fontSize: '11px', color: '#88887E' }}>
+                  {pdfData.clientName} — Date : ____________
+                </div>
+              </div>
             </div>
+
           </div>
-          
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
-            <tr style={{ background: '#161629', color: '#fff', borderRadius: '8px 8px 0 0', overflow: 'hidden' }}>
-              <th style={{ textAlign: 'left', padding: '12px 15px' }}>DESCRIPTION</th>
-              <th style={{ textAlign: 'center', padding: '12px 15px' }}>QTY</th>
-              <th style={{ textAlign: 'right', padding: '12px 15px' }}>UNIT PRICE</th>
-              <th style={{ textAlign: 'right', padding: '12px 15px' }}>TOTAL</th>
-            </tr>
-            {pdfData.items.map((it, i) => (
-              <tr key={i} style={{ borderBottom: '1px solid #eee' }}>
-                <td style={{ padding: '12px 15px' }}>{it.description}</td>
-                <td style={{ textAlign: 'center', padding: '12px 15px' }}>{it.qty}</td>
-                <td style={{ textAlign: 'right', padding: '12px 15px' }}>{parseFloat(it.unitPrice || it.amount).toFixed(2)} TND</td>
-                <td style={{ textAlign: 'right', padding: '12px 15px', fontWeight: 600 }}>{(it.qty * (it.unitPrice || it.amount)).toFixed(2)} TND</td>
-              </tr>
-            ))}
-          </table>
-          <div style={{ marginTop: '40px', display: 'flex', justifyContent: 'flex-end' }}>
-            <div style={{ background: '#161629', color: '#fff', padding: '20px 30px', borderRadius: '12px', boxShadow: '0 8px 20px rgba(0,0,0,0.15)' }}>
-              <h2 style={{ margin: 0, fontSize: '28px', fontFamily: "'Sora', sans-serif", fontWeight: 800 }}>{parseFloat(pdfData.amount).toFixed(2)} TND</h2>
-            </div>
+
+          {/* ══ FOOTER ══ */}
+          <div style={{ borderTop: '1.5px solid #E8E8E4', padding: '14px 52px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '10px', color: '#ADADAA' }}>
+            <span style={{ fontWeight: 700, color: '#111110' }}>{pdfData.providerName}</span>
+            <span>Devis N° #QT-{pdfData.id} · {new Date().toLocaleDateString('fr-TN')}</span>
+            <span style={{ color: '#ADADAA' }}>Tunisie</span>
           </div>
+
         </div>
       )}
     </div>

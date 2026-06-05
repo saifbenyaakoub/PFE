@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import ChatPage from "./Chat";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { getSession } from "../lib/session";
 import StatusDropdown from "./StatusDropdown";
 import "./providerDashboard.css";
@@ -39,9 +39,11 @@ const Icon = {
 };
 
 const STATUS_META = {
-  confirmed: { label: "Confirmed", cls: "db-badge--confirmed" },
-  completed: { label: "Completed", cls: "db-badge--completed" },
-  cancelled: { label: "Cancelled", cls: "db-badge--cancelled" },
+  pending:     { label: "Pending",      cls: "db-badge--pending"     },
+  confirmed:   { label: "Confirmed",    cls: "db-badge--confirmed"   },
+  "in-progress": { label: "In Progress", cls: "db-badge--inprogress" },
+  completed:   { label: "Completed",    cls: "db-badge--completed"   },
+  cancelled:   { label: "Cancelled",    cls: "db-badge--cancelled"   },
 };
 
 const Stars = ({ n }) => Array.from({ length: 5 }, (_, i) => (
@@ -134,8 +136,10 @@ function CalendarTab({ bookings, loading, fetchBookings }) {
 
   const bookingsByDate = {};
   (bookings || []).forEach(b => {
-    const key = b.date?.slice(0, 10);
-    if (!key) return;
+    if (!b.date) return;
+    // Use slice(0,10) on the ISO string to get YYYY-MM-DD in UTC,
+    // avoiding local-timezone shifts that push dates to the wrong day.
+    const key = b.date.slice(0, 10);
     if (!bookingsByDate[key]) bookingsByDate[key] = [];
     bookingsByDate[key].push(b);
   });
@@ -152,11 +156,13 @@ function CalendarTab({ bookings, loading, fetchBookings }) {
   };
 
   const pad = n => String(n).padStart(2, "0");
+  // Build keys from the calendar's own year/month state — no Date constructor needed,
+  // so there is no timezone conversion and keys always match b.date.slice(0,10).
   const cellKey = d => `${year}-${pad(month + 1)}-${pad(d)}`;
   const todayStr = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
   const selectedKey = selectedDay ? cellKey(selectedDay) : null;
   const selectedBookings = selectedKey ? (bookingsByDate[selectedKey] || []) : [];
-  const visibleStatuses = ["confirmed", "completed", "cancelled"];
+  const visibleStatuses = ["pending", "confirmed", "in-progress", "completed", "cancelled"];
 
   if (loading) return <Spinner />;
 
@@ -190,9 +196,15 @@ function CalendarTab({ bookings, loading, fetchBookings }) {
                   <span className="db-cal-day-num">{day}</span>
                   {dayBks.length > 0 && (
                     <div className="db-cal-dots">
-                      {dayBks.slice(0, 3).map((b, idx) => (
-                        <span key={idx} className="db-cal-dot" style={{ background: STATUS_META[b.status]?.cls === "db-badge--confirmed" ? "var(--info)" : b.status === "completed" ? "var(--success)" : "var(--danger)" }} />
-                      ))}
+                      {dayBks.slice(0, 3).map((b, idx) => {
+                          const dotColor =
+                            b.status === "pending"      ? "var(--warn)"    :
+                            b.status === "confirmed"    ? "var(--info)"    :
+                            b.status === "in-progress"  ? "var(--primary)" :
+                            b.status === "completed"    ? "var(--success)" :
+                            "var(--danger)";
+                          return <span key={idx} className="db-cal-dot" style={{ background: dotColor }} />;
+                        })}
                       {dayBks.length > 3 && <span className="db-cal-dot-more">+{dayBks.length - 3}</span>}
                     </div>
                   )}
@@ -201,12 +213,20 @@ function CalendarTab({ bookings, loading, fetchBookings }) {
             })}
           </div>
           <div className="db-cal-legend">
-            {Object.entries(STATUS_META).map(([k, v]) => (
-              <span key={k} className="db-cal-legend-item">
-                <span className="db-cal-dot" style={{ background: k === "confirmed" ? "var(--info)" : k === "completed" ? "var(--success)" : "var(--danger)" }} />
-                {v.label}
-              </span>
-            ))}
+            {Object.entries(STATUS_META).map(([k, v]) => {
+              const dotColor =
+                k === "pending"      ? "var(--warn)"    :
+                k === "confirmed"    ? "var(--info)"    :
+                k === "in-progress"  ? "var(--primary)" :
+                k === "completed"    ? "var(--success)" :
+                "var(--danger)";
+              return (
+                <span key={k} className="db-cal-legend-item">
+                  <span className="db-cal-dot" style={{ background: dotColor }} />
+                  {v.label}
+                </span>
+              );
+            })}
           </div>
         </div>
 
@@ -259,6 +279,7 @@ function CalendarTab({ bookings, loading, fetchBookings }) {
 export default function ProviderDashboard() {
   const [tab, setTab] = useState("overview");
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const session  = getSession();
   const user     = session?.user;
   const token    = session?.token;
@@ -266,6 +287,15 @@ export default function ProviderDashboard() {
   const name     = user?.name || "Provider";
   const initials = name.trim().split(/\s+/).map(n => n[0]).join("").toUpperCase().slice(0, 2);
   const profileImageUrl = resolveImage(user?.profileImage);
+
+  // On mount, honour ?tab= query param (e.g. from "Book Now" redirect)
+  useEffect(() => {
+    const tabParam = searchParams.get("tab");
+    if (tabParam) {
+      setTab(tabParam);
+      setSearchParams({}, { replace: true }); // clean up the URL
+    }
+  }, []);
 
   const [stats,           setStats]           = useState(null);
   const [bookings,        setBookings]        = useState([]);
@@ -287,7 +317,7 @@ export default function ProviderDashboard() {
   }, [userId, token]);
 
   const fetchBookings = useCallback(async () => {
-    try { setLoadingBookings(true); const res = await fetch(`${API}/bookings/provider/${userId}`, { headers: authHeaders(token) }); const d = await res.json(); setBookings(Array.isArray(d) ? d : []); }
+    try { setLoadingBookings(true); const res = await fetch(`${API}/dashboard/provider/${userId}/calendar-bookings`, { headers: authHeaders(token) }); const d = await res.json(); setBookings(Array.isArray(d.data) ? d.data : []); }
     catch { setBookings([]); } finally { setLoadingBookings(false); }
   }, [userId, token]);
 

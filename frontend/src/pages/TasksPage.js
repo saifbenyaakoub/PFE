@@ -85,7 +85,7 @@ function TasksPage() {
               body: JSON.stringify({ userId: session.user.id, partnerId: item.client_id }),
             });
             if (response.ok) {
-              navigate("/chat");
+              navigate("/dashboard?tab=messages");
               return;
             }
           } catch (err) {

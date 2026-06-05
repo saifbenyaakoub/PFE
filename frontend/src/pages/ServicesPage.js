@@ -85,7 +85,7 @@ function ServicesPage() {
           },
           body: JSON.stringify({ userId: session.user.id, partnerId: item.provider_id }),
         });
-        if (response.ok) return navigate("/chat");
+        if (response.ok) return navigate("/dashboard?tab=messages");
       } catch (err) {
         console.error("Chat start failed", err);
       }

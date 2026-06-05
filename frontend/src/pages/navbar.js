@@ -403,7 +403,7 @@ function Navbar() {
           ) : (
             <div className="navbar-auth-btns">
               <NavLink to="/sign-in" className="btn-signin" onClick={closeMenu}>Sign in</NavLink>
-              <NavLink to="/sign-up" className="btn-signup" onClick={closeMenu}>Get started</NavLink>
+              <NavLink to="/get-started" className="btn-signup" onClick={closeMenu}>Get started</NavLink>
             </div>
           )}
         </div>

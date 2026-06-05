@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { getSession } from "../lib/session";
 import ProviderDashboard from "./ProviderDashboard";
 import AdminDashboard from "./AdminDashboard";
@@ -313,7 +313,7 @@ function RecommendationBot() {
         <div className="db-bot-avatar">{Icon.wrench}</div>
         <div className="db-bot-meta">
           <span className="db-bot-name">FixHub Assistant</span>
-          <span className="db-bot-status">● Powered by Gemini</span>
+          <span className="db-bot-status">● Powered by Llama</span>
         </div>
         <button
           className="db-bot-clear"
@@ -418,7 +418,17 @@ function ClientDashboard() {
   const [dashError, setDashError]   = useState(null);
 
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const session  = getSession();
+
+  // On mount, honour ?tab= query param (e.g. from "Book Now" redirect)
+  useEffect(() => {
+    const tabParam = searchParams.get("tab");
+    if (tabParam) {
+      setTab(tabParam);
+      setSearchParams({}, { replace: true }); // clean up the URL
+    }
+  }, []);
   const user     = session?.user;
   const name     = user?.name || "Client";
   const initials = name.trim().split(/\s+/).map(n => n[0]).join("").toUpperCase().slice(0, 2);
