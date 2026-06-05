@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback } from "react";
 import ChatPage from "./Chat";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { getSession } from "../lib/session";
-import StatusDropdown from "./StatusDropdown";
 import "./providerDashboard.css";
 
 const API = "http://localhost:5000";
@@ -109,6 +108,269 @@ function ServiceModal({ service, onClose, onSave }) {
     </div>
   );
 }
+
+const BOOKING_STATUS_OPTIONS = [
+  { value: "pending", label: "Pending", dot: "var(--warn)" },
+  { value: "confirmed", label: "Confirmed", dot: "var(--info)" },
+  { value: "in-progress", label: "In Progress", dot: "var(--primary, #6366f1)" },
+  { value: "completed", label: "Completed", dot: "var(--success)" },
+  { value: "cancelled", label: "Cancelled", dot: "var(--danger)" },
+];
+
+const STATUS_PROGRESS = {
+  pending: 0,
+  confirmed: 25,
+  "in-progress": 60,
+  completed: 100,
+  cancelled: 0,
+};
+
+const STATUS_PROGRESS_COLOR = {
+  pending: "var(--warn)",
+  confirmed: "var(--info)",
+  "in-progress": "var(--primary)",
+  completed: "var(--success)",
+  cancelled: "var(--danger)",
+};
+
+function BookingCard({ b, onStatusChange }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [status, setStatus] = useState(b.status);
+  const [updating, setUpdating] = useState(false);
+  const [progress, setProgress] = useState(STATUS_PROGRESS[b.status] ?? 0);
+  const [dragging, setDragging] = useState(false);
+
+  const barRef = React.useRef(null);
+  const menuRef = React.useRef(null);
+
+  React.useEffect(() => {
+    const handleOutsideClick = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, []);
+
+  React.useEffect(() => {
+    setStatus(b.status);
+    setProgress(STATUS_PROGRESS[b.status] ?? 0);
+  }, [b.status]);
+
+  const handleStatusChange = async (newStatus) => {
+    setMenuOpen(false);
+    if (newStatus === status) return;
+
+    setUpdating(true);
+    try {
+      await onStatusChange(b.id, newStatus);
+      setStatus(newStatus);
+      setProgress(STATUS_PROGRESS[newStatus] ?? 0);
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const calcPct = (clientX) => {
+    if (!barRef.current) return 0;
+    const { left, width } = barRef.current.getBoundingClientRect();
+    return Math.min(100, Math.max(0, Math.round(((clientX - left) / width) * 100)));
+  };
+
+  const onBarMouseDown = (e) => {
+    e.preventDefault();
+    setDragging(true);
+    setProgress(calcPct(e.clientX));
+
+    const onMove = (ev) => setProgress(calcPct(ev.clientX));
+    const onUp = () => {
+      setDragging(false);
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  };
+
+  const onBarTouchStart = (e) => {
+    setDragging(true);
+    setProgress(calcPct(e.touches[0].clientX));
+
+    const onMove = (ev) => setProgress(calcPct(ev.touches[0].clientX));
+    const onEnd = () => {
+      setDragging(false);
+      document.removeEventListener("touchmove", onMove);
+      document.removeEventListener("touchend", onEnd);
+    };
+
+    document.addEventListener("touchmove", onMove);
+    document.addEventListener("touchend", onEnd);
+  };
+
+  const sm = STATUS_META[status] || STATUS_META.confirmed;
+  const barColor = STATUS_PROGRESS_COLOR[status] || "var(--primary)";
+  const clientName = b.client_name || b.client || "Client";
+  const serviceName = b.service_name || b.service || "Direct Booking";
+  const initials = clientName
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+  const dateStr = b.date
+    ? new Date(b.date).toLocaleDateString("fr-FR", {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      })
+    : "Date non definie";
+
+  const amount = b.amount ? `${parseFloat(b.amount).toFixed(0)} TND` : null;
+
+  return (
+    <article className={`db-cal-booking-card db-cal-booking-card--${status}`}>
+      <div className="db-cal-booking-accent" style={{ background: barColor }} />
+
+      <div className="db-cal-booking-top">
+        <div className="db-booking-avatar db-cal-booking-avatar">
+          {b.client_image ? (
+            <img
+              src={resolveImage(b.client_image)}
+              alt={clientName}
+              className="db-avatar-img"
+              onError={(e) => {
+                e.target.style.display = "none";
+              }}
+            />
+          ) : (
+            initials
+          )}
+        </div>
+
+        <div className="db-cal-booking-main">
+          <div className="db-cal-booking-title-row">
+            <h4 className="db-cal-booking-client">{clientName}</h4>
+
+            <div className="db-task-status-wrap" ref={menuRef}>
+              <button
+                type="button"
+                className={`db-badge ${sm.cls} db-badge--clickable db-cal-booking-status`}
+                onClick={() => setMenuOpen((o) => !o)}
+                disabled={updating}
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
+              >
+                {updating ? (
+                  <span className="db-spinner db-cal-booking-status-spinner" />
+                ) : (
+                  sm.label
+                )}
+                <svg
+                  width="9"
+                  height="9"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="db-cal-booking-chevron"
+                >
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </button>
+
+              {menuOpen && (
+                <div className="db-status-menu db-cal-booking-menu" role="menu">
+                  {BOOKING_STATUS_OPTIONS.map((o) => (
+                    <button
+                      key={o.value}
+                      type="button"
+                      role="menuitem"
+                      className={`db-status-menu-item${
+                        o.value === status ? " db-status-menu-item--active" : ""
+                      }`}
+                      onClick={() => handleStatusChange(o.value)}
+                    >
+                      <span className="db-status-dot" style={{ background: o.dot }} />
+                      {o.label}
+                      {o.value === status && <span className="db-status-check">{Icon.check}</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="db-cal-booking-service">{serviceName}</div>
+        </div>
+      </div>
+
+      <div className="db-cal-booking-meta-grid">
+        <div className="db-cal-booking-meta-item">
+          <span className="db-cal-booking-meta-icon">{Icon.calendar}</span>
+          <span>{dateStr}</span>
+        </div>
+
+        {b.time && (
+          <div className="db-cal-booking-meta-item">
+            <span className="db-cal-booking-meta-icon">{Icon.clock}</span>
+            <span>{b.time}</span>
+          </div>
+        )}
+
+        {amount && (
+          <div className="db-cal-booking-amount">
+            <span>{amount}</span>
+          </div>
+        )}
+      </div>
+
+      {b.details && <p className="db-cal-booking-details">{b.details}</p>}
+
+      <div className="db-cal-booking-progress">
+        <div className="db-cal-booking-progress-head">
+          <span>Progression</span>
+          <strong style={{ color: barColor }}>{progress}%</strong>
+        </div>
+
+        <div
+          ref={barRef}
+          className="db-cal-booking-progress-track"
+          onMouseDown={onBarMouseDown}
+          onTouchStart={onBarTouchStart}
+          style={{ "--booking-progress": `${progress}%`, "--booking-progress-color": barColor }}
+        >
+          <div
+            className="db-cal-booking-progress-fill"
+            style={{ transition: dragging ? "none" : undefined }}
+          />
+          <div
+            className="db-cal-booking-progress-thumb"
+            style={{ transition: dragging ? "none" : undefined }}
+          />
+        </div>
+
+        <div className="db-cal-booking-steps">
+          {[
+            ["0%", "Pending"],
+            ["25%", "Confirmed"],
+            ["60%", "In Progress"],
+            ["100%", "Done"],
+          ].map(([pct, label]) => (
+            <span key={label} className={progress >= parseInt(pct, 10) ? "is-active" : ""}>
+              {label}
+            </span>
+          ))}
+        </div>
+      </div>
+    </article>
+  );
+}
+
 
 // ── Calendar Tab ──────────────────────────────────────────────────────────────
 function CalendarTab({ bookings, loading, fetchBookings }) {
@@ -246,26 +508,7 @@ function CalendarTab({ bookings, loading, fetchBookings }) {
               {selectedBookings.length === 0 ? (
                 <p className="db-empty-small">No bookings on this day.</p>
               ) : selectedBookings.map(b => (
-                <div key={b.id} className="db-cal-booking-card">
-                  <div className="db-cal-booking-top">
-                    <div className="db-booking-avatar" style={{ width: 34, height: 34, fontSize: 11 }}>
-                      {b.client_image
-                        ? <img src={resolveImage(b.client_image)} alt={b.client_name} className="db-avatar-img" onError={e => e.target.style.display = "none"} />
-                        : (b.client_name || "Client").split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()
-                      }
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13.5, fontWeight: 500, color: "var(--ink)" }}>{b.client_name || b.client}</div>
-                      <div style={{ fontSize: 12, color: "var(--ink-mid)" }}>{b.service_name || b.service}</div>
-                    </div>
-                    <StatusBadge status={b.status} />
-                  </div>
-                  <div className="db-cal-booking-meta">
-                    <span>{Icon.clock} {b.time || "—"}</span>
-                    {b.city && <span>{b.city}</span>}
-                  </div>
-                  <StatusDropdown booking={b} onStatusChange={handleStatusUpdate} />
-                </div>
+                <BookingCard key={b.id} b={b} onStatusChange={handleStatusUpdate} />
               ))}
             </div>
           )}

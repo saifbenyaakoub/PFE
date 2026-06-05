@@ -380,9 +380,83 @@ function RecommendationBot() {
 }
 
 // ── Task Card ─────────────────────────────────────────────────────────────────
+const TASK_STATUS_OPTIONS = [
+  { value: "open",        label: "Open",        cls: "db-badge--open"        },
+  { value: "in-progress", label: "In Progress", cls: "db-badge--in-progress" },
+  { value: "completed",   label: "Completed",   cls: "db-badge--completed"   },
+  { value: "cancelled",   label: "Cancelled",   cls: "db-badge--cancelled"   },
+];
+
 function TaskCard({ task }) {
-  const tm = TASK_STATUS_META[task.status] || TASK_STATUS_META.open;
-       
+  const session = getSession();
+  const [status, setStatus]         = useState(task.status || "open");
+  const [menuOpen, setMenuOpen]     = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+
+  const [comment, setComment]       = useState("");
+  const [rating, setRating]         = useState(0);
+  const [hoverRating, setHoverRating] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted]   = useState(false);
+  const [commentError, setCommentError] = useState("");
+
+  const menuRef = React.useRef(null);
+
+  // Close menu on outside click
+  React.useEffect(() => {
+    const handler = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const handleStatusChange = async (newStatus) => {
+    setMenuOpen(false);
+    if (newStatus === status) return;
+    setUpdatingStatus(true);
+    try {
+      const res = await fetch(`${API_URL}/tasks/${task.id}/status`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session?.token}`,
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (!res.ok) throw new Error("Failed to update status");
+      setStatus(newStatus);
+    } catch (e) {
+      // revert silently — could show a toast here
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
+  const handleCommentSubmit = async () => {
+    if (!comment.trim()) return;
+    setSubmitting(true); setCommentError("");
+    try {
+      const res = await fetch(`${API_URL}/tasks/${task.id}/comments`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session?.token}`,
+        },
+        body: JSON.stringify({ comment: comment.trim(), rating: rating || null }),
+      });
+      if (!res.ok) throw new Error("Failed to submit");
+      setSubmitted(true);
+      setComment("");
+      setRating(0);
+    } catch (e) {
+      setCommentError(e.message);
+    } finally {
+      setSubmitting(false); }
+  };
+
+  const tm = TASK_STATUS_META[status] || TASK_STATUS_META.open;
+
   return (
     <div className="db-task-card">
       {task.image && (
@@ -391,8 +465,36 @@ function TaskCard({ task }) {
       <div className="db-task-body">
         <div className="db-task-top">
           <span className="db-task-title">{task.title}</span>
-          <span className={`db-badge ${tm.cls}`}>{tm.label}</span>
+
+          {/* ── Status menu ── */}
+          <div className="db-task-status-wrap" ref={menuRef}>
+            <button
+              className={`db-badge ${tm.cls} db-badge--clickable`}
+              onClick={() => setMenuOpen(o => !o)}
+              disabled={updatingStatus}
+              title="Change status"
+            >
+              {updatingStatus ? <span className="db-spinner" style={{ width: 10, height: 10, borderWidth: 1.5 }} /> : tm.label}
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 4, opacity: 0.7 }}><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            {menuOpen && (
+              <div className="db-status-menu">
+                {TASK_STATUS_OPTIONS.map(opt => (
+                  <button
+                    key={opt.value}
+                    className={`db-status-menu-item ${opt.value === status ? "db-status-menu-item--active" : ""}`}
+                    onClick={() => handleStatusChange(opt.value)}
+                  >
+                    <span className={`db-status-dot db-status-dot--${opt.value}`} />
+                    {opt.label}
+                    {opt.value === status && <span style={{ marginLeft: "auto", opacity: 0.5 }}>{Icon.check}</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
+
         <div className="db-task-meta">
           {task.category && <span className="db-task-cat">{task.category}</span>}
           <span className="db-task-date">{Icon.clock} {task.date}</span>
@@ -404,6 +506,67 @@ function TaskCard({ task }) {
             <strong>{task.applicants}</strong> provider{task.applicants !== 1 ? "s" : ""} applied
           </span>
         </div>
+
+        {/* ── Comment & Rating section ── */}
+        <div className="db-task-review">
+          <div className="db-task-review-stars">
+            {Array.from({ length: 5 }, (_, i) => (
+              <button
+                key={i}
+                className="db-star-btn"
+                onMouseEnter={() => setHoverRating(i + 1)}
+                onMouseLeave={() => setHoverRating(0)}
+                onClick={() => setRating(i + 1 === rating ? 0 : i + 1)}
+                title={`${i + 1} star${i > 0 ? "s" : ""}`}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24"
+                  fill={(hoverRating || rating) > i ? "var(--warn)" : "none"}
+                  stroke={(hoverRating || rating) > i ? "var(--warn)" : "var(--border2)"}
+                  strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                </svg>
+              </button>
+            ))}
+            {rating > 0 && (
+              <span style={{ fontSize: 11, color: "var(--ink3)", marginLeft: 4 }}>
+                {rating} star{rating !== 1 ? "s" : ""}
+              </span>
+            )}
+          </div>
+
+          {submitted ? (
+            <div className="db-task-review-success">
+              {Icon.check} Comment submitted!
+            </div>
+          ) : (
+            <div className="db-task-review-input-row">
+              <input
+                className="db-task-review-input"
+                type="text"
+                placeholder="Leave a comment…"
+                value={comment}
+                onChange={e => setComment(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && !submitting && handleCommentSubmit()}
+                disabled={submitting}
+                maxLength={300}
+              />
+              <button
+                className="db-icon-btn"
+                onClick={handleCommentSubmit}
+                disabled={!comment.trim() || submitting}
+                title="Submit comment"
+              >
+                {submitting
+                  ? <span className="db-spinner" style={{ width: 11, height: 11, borderWidth: 1.5 }} />
+                  : Icon.send}
+              </button>
+            </div>
+          )}
+          {commentError && (
+            <p style={{ fontSize: 11, color: "var(--danger)", marginTop: 4 }}>{commentError}</p>
+          )}
+        </div>
+
       </div>
     </div>
   );
