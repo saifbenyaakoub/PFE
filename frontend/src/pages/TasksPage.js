@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { 
+import {
   faHammer, faWrench, faRuler, faPaintBrush, faFaucet, faSprayCan, faTaxi, faCar,
   faBroom, faLeaf, faBox, faGear, faStar, faLocationDot, faXmark, faCheckCircle, faUser, faSearch
 } from '@fortawesome/free-solid-svg-icons';
@@ -9,8 +9,10 @@ import { getSession } from "../lib/session";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import "./services.css"; // Connecting to the newly aligned CSS
+import "./services.css";
 import ServicesFilter from "./ServicesFilter";
+
+const API_URL = "http://localhost:5000";
 
 const governorateCoordinates = {
   "Tunis": [36.8065, 10.1815], "Ariana": [36.8665, 10.1647], "Ben Arous": [36.746, 10.228],
@@ -24,98 +26,133 @@ const governorateCoordinates = {
 };
 
 const locationIcon = L.divIcon({
-  html: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512" style="width: 32px; height: 32px; fill: #D85A30;"><path d="M215.7 499.2C267 435 384 279.4 384 192C384 86 298 0 192 0S0 86 0 192c0 87.4 117 243 168.3 307.2c12.3 15.3 35.1 15.3 47.4 0zM192 128a64 64 0 1 1 0 128 64 64 0 1 1 0-128z"/></svg>`,
+  html: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512" style="width:32px;height:32px;fill:#D85A30;"><path d="M215.7 499.2C267 435 384 279.4 384 192C384 86 298 0 192 0S0 86 0 192c0 87.4 117 243 168.3 307.2c12.3 15.3 35.1 15.3 47.4 0zM192 128a64 64 0 1 1 0 128 64 64 0 1 1 0-128z"/></svg>`,
   className: 'custom-map-marker',
   iconSize: [32, 32],
   iconAnchor: [16, 32],
   popupAnchor: [0, -32]
 });
 
+const taskImageUrl = (image_url) => {
+  if (!image_url) return null;
+  if (image_url.startsWith("http")) return image_url;
+  return `${API_URL}${image_url.startsWith("/") ? "" : "/"}${image_url}`;
+};
+
+// Profile images are stored in the DB as a bare filename (e.g.
+// "22-1777992369161-85471438.jpg"), saved directly under the server's
+// uploads/ folder and served via app.use("/uploads", express.static(...)).
+// Unlike task images, there is no leading slash and no "uploads" segment
+// in the stored value, so it must always be prefixed with /uploads/.
+const accountImageUrl = (image_url) => {
+  if (!image_url) return null;
+  if (image_url.startsWith("http")) return image_url;
+  if (image_url.startsWith("/uploads/")) return `${API_URL}${image_url}`;
+  return `${API_URL}/uploads/${image_url}`;
+};
+
+const getInitials = (name = '') =>
+  name.trim().split(/\s+/).map(n => n[0]).join('').toUpperCase().slice(0, 2) || '?';
+
+// Renders the client's account image when available, with a graceful
+// fallback to initials if there's no image or the image fails to load.
+function ClientAvatar({ name, image, className = "task-avatar" }) {
+  const [failed, setFailed] = useState(false);
+  const src = accountImageUrl(image);
+
+  if (!src || failed) {
+    return <div className={className}>{getInitials(name)}</div>;
+  }
+  return (
+    <img
+      src={src}
+      alt={name}
+      className={className}
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
 function TasksPage() {
-  const [items, setItems] = useState([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const navigate = useNavigate();
+  const [items, setItems]               = useState([]);
+  const [searchTerm, setSearchTerm]     = useState("");
+  const [selectedTask, setSelectedTask] = useState(null);
+  const navigate                        = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const session = getSession();
-  const isProvider = session?.user?.role === "provider";
-  const providerCategories = Array.isArray(session?.user?.categories) 
-    ? session.user.categories 
+  const session           = getSession();
+  const isProvider        = session?.user?.role === "provider";
+  const providerCategories = Array.isArray(session?.user?.categories)
+    ? session.user.categories
     : (session?.user?.categories?.split(',').map(c => c.trim()) || []);
 
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get('category') || "");
-  const [selectedCity, setSelectedCity] = useState(searchParams.get('city') || "");
-  const [selectedTask, setSelectedTask] = useState(null);
+  const [selectedCity, setSelectedCity]         = useState(searchParams.get('city') || "");
 
-  const getInitials = (name = '') => name.trim().split(/\s+/).map(n => n[0]).join('').toUpperCase().slice(0, 2) || '?';
+  const icons = [faHammer, faWrench, faRuler, faPaintBrush, faFaucet, faSprayCan,
+                 faTaxi, faCar, faBroom, faLeaf, faBox, faGear];
 
-  const icons = [faHammer, faWrench, faRuler, faPaintBrush, faFaucet, faSprayCan, faTaxi, faCar, faBroom, faLeaf, faBox, faGear];
   const tunisianCities = [
-    "Tunis", "Ariana", "Ben Arous", "Manouba", "Nabeul", "Zaghouan", "Bizerte", "Béja", 
-    "Jendouba", "Kef", "Siliana", "Kairouan", "Kasserine", "Sidi Bouzid", "Sousse", 
-    "Monastir", "Mahdia", "Sfax", "Gafsa", "Tozeur", "Kebili", "Gabès", "Medenine", "Tataouine"
+    "Tunis","Ariana","Ben Arous","Manouba","Nabeul","Zaghouan","Bizerte","Béja",
+    "Jendouba","Kef","Siliana","Kairouan","Kasserine","Sidi Bouzid","Sousse",
+    "Monastir","Mahdia","Sfax","Gafsa","Tozeur","Kebili","Gabès","Medenine","Tataouine"
   ];
 
   useEffect(() => {
-    fetch("http://localhost:5000/tasks")
-      .then(res => res.json())
-      .then(data => setItems(data))
-      .catch(err => console.error(err));
+    fetch(`${API_URL}/tasks`)
+      .then(r => r.json())
+      .then(setItems)
+      .catch(console.error);
   }, []);
 
   useEffect(() => {
-    const params = new URLSearchParams();
-    if (selectedCategory) params.set('category', selectedCategory);
-    if (selectedCity) params.set('city', selectedCity);
-    setSearchParams(params, { replace: true });
+    const p = new URLSearchParams();
+    if (selectedCategory) p.set('category', selectedCategory);
+    if (selectedCity)     p.set('city', selectedCity);
+    setSearchParams(p, { replace: true });
   }, [selectedCategory, selectedCity, setSearchParams]);
 
   const handleAction = async (item) => {
-    const session = getSession();
-    if (session) {
-      if (item && item.id) {
-        if (session.user.role === "provider" && item.client_id) {
-          try {
-            const response = await fetch("http://localhost:5000/chat/start", {
-              method: "POST",
-              headers: { 
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${session.token}`
-              },
-              body: JSON.stringify({ userId: session.user.id, partnerId: item.client_id }),
-            });
-            if (response.ok) {
-              navigate("/dashboard?tab=messages");
-              return;
-            }
-          } catch (err) {
-            console.error("Failed to start conversation", err);
-          }
-        }
-        setSelectedTask(item);
-      }
-    } else {
-      navigate('/sign-in');
+    if (!session) { navigate('/sign-in'); return; }
+    if (!item?.id) return;
+    if (session.user.role === "provider" && item.client_id) {
+      try {
+        const r = await fetch(`${API_URL}/chat/start`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session.token}` },
+          // taskId lets the resulting conversation/quotation/booking stay
+          // linked back to this exact task, so its status can be synced
+          // correctly on the client dashboard later.
+          body: JSON.stringify({ userId: session.user.id, partnerId: item.client_id, taskId: item.id }),
+        });
+        if (r.ok) { navigate("/dashboard?tab=messages"); return; }
+      } catch (e) { console.error(e); }
     }
+    setSelectedTask(item);
   };
 
   const filteredItems = items.filter(item => {
-    const matchesSearch = item.title?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory ? item.category === selectedCategory : true;    
-    const matchesCity = selectedCity ? item.city === selectedCity : true;
-    const matchesProviderSkills = isProvider && providerCategories.length > 0
-      ? providerCategories.includes(item.category)
-      : true;
-    return matchesSearch && matchesCategory && matchesCity && matchesProviderSkills;
+    const matchesSearch   = item.title?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = selectedCategory ? item.category === selectedCategory : true;
+    const matchesCity     = selectedCity     ? item.city     === selectedCity     : true;
+    const matchesSkills   = isProvider && providerCategories.length > 0
+      ? providerCategories.includes(item.category) : true;
+    return matchesSearch && matchesCategory && matchesCity && matchesSkills;
   });
 
   const uniqueCategories = [...new Set(items.map(s => s.category).filter(Boolean))];
+
+  const mapCenter = (task) => {
+    if (task.latitude && task.longitude) return [task.latitude, task.longitude];
+    if (task.city && governorateCoordinates[task.city]) return governorateCoordinates[task.city];
+    return [36.8065, 10.1815];
+  };
 
   return (
     <div className="services-container">
       <div className="services-inner">
 
-        {/* Banner */}
+        {/* ── Banner ── */}
         <div className="services-banner">
           {Array.from({ length: 12 }).map((_, i) => (
             <div key={i} className="floating-icon" style={{
@@ -131,7 +168,7 @@ function TasksPage() {
           <p>Browse local requests and start earning on your own terms. Connect directly with clients in your area.</p>
         </div>
 
-        {/* Floating Search */}
+        {/* ── Search ── */}
         <div className="services-search-wrapper">
           <div className="services-search-bar">
             <FontAwesomeIcon icon={faSearch} className="search-icon" />
@@ -140,14 +177,13 @@ function TasksPage() {
               placeholder="Search by task title..."
               className="services-search-input"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={e => setSearchTerm(e.target.value)}
             />
           </div>
         </div>
 
-        {/* Main Content Area */}
+        {/* ── Layout ── */}
         <div className="services-layout">
-          
           <aside className="services-sidebar">
             <ServicesFilter
               selectedCategory={selectedCategory}
@@ -169,69 +205,83 @@ function TasksPage() {
             </div>
 
             <div className="tasks-grid">
-              {filteredItems.map((item, index) => (
-                <div 
-                  key={item.id || index} 
-                  className="task-card"
-                  onClick={() => { getSession() ? setSelectedTask(item) : navigate('/sign-in') }} 
-                >
-                  <div className="task-card-main">
-                    {item.client_image ? (
-                      <img src={item.client_image} alt={item.client_name} className="task-avatar" />
-                    ) : (
-                      <div className="task-avatar">{getInitials(item.client_name)}</div>
+              {filteredItems.map((item, index) => {
+                const imgUrl = taskImageUrl(item.image_url);
+                return (
+                  <div
+                    key={item.id || index}
+                    className={`task-card${imgUrl ? " task-card--has-image" : ""}`}
+                    onClick={() => session ? setSelectedTask(item) : navigate('/sign-in')}
+                  >
+                    {/* ── Image banner (only when present) ── */}
+                    {imgUrl && (
+                      <div className="task-card-image">
+                        <img src={imgUrl} alt={item.title} />
+                        {/* Category pill overlaid on image */}
+                        <span className="task-card-image-cat">{item.category}</span>
+                      </div>
                     )}
-                    
-                    <div className="task-info">
-                      <h3 className="task-title">{item.title}</h3>
-                      <p className="task-client">by <span>{item.client_name}</span></p>
-                      <p className="task-desc">{item.description}</p>
-                      
-                      <div className="task-tags">
-                        <span className="task-tag category">{item.category}</span>
-                        {item.city && (
-                          <span className="task-tag location">
-                            <FontAwesomeIcon icon={faLocationDot} style={{ marginRight: '6px', opacity: 0.6 }} />
-                            {item.city}
-                          </span>
+
+                    {/* ── Card body ── */}
+                    <div className="task-card-body">
+                      <div className="task-card-content">
+                        {/* Avatar + meta */}
+                        <div className="task-card-top">
+                          <ClientAvatar
+                            name={item.client_name}
+                            image={item.client_image}
+                            className="task-avatar"
+                          />
+                          <div className="task-card-meta">
+                            <h3 className="task-title">{item.title}</h3>
+                            <p className="task-client">by <span>{item.client_name}</span></p>
+                          </div>
+                        </div>
+
+                        <p className="task-desc">{item.description}</p>
+
+                        {/* Tags row */}
+                        <div className="task-tags">
+                          {!imgUrl && (
+                            <span className="task-tag category">{item.category}</span>
+                          )}
+                          {item.city && (
+                            <span className="task-tag location">
+                              <FontAwesomeIcon icon={faLocationDot} />
+                              {item.city}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* ── Action aside ── */}
+                      <div className="task-card-aside">
+                        {item.rating && (
+                          <div className="task-rating">
+                            <FontAwesomeIcon icon={faStar} className="star" />
+                            <span className="task-rating-val">{item.rating}</span>
+                            <span className="task-rating-max">/ 5</span>
+                          </div>
                         )}
+                        <button
+                          className="task-book-btn"
+                          onClick={e => { e.stopPropagation(); handleAction(item); }}
+                        >
+                          Book Now
+                        </button>
                       </div>
                     </div>
                   </div>
-
-                  <div className="task-card-aside">
-  {/* This will stay at the top */}
-  {item.rating ? (
-    <div className="task-rating">
-      <FontAwesomeIcon icon={faStar} className="star" />
-      <span className="task-rating-val">{item.rating}</span>
-      <span className="task-rating-max">/ 5.0</span>
-    </div>
-  ) : (
-    <div /> 
-  )}
-
-  <button 
-    className="task-book-btn"
-    onClick={(e) => { 
-      e.stopPropagation(); 
-      handleAction(item); 
-    }}
-  >
-    Book Now
-  </button>
-</div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </main>
         </div>
-
       </div>
 
-      {/* Modern Modal */}
+      {/* ── Modal ── */}
       {selectedTask && (
-        <div className="modal-overlay">
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setSelectedTask(null)}>
           <div className="modal-content">
             <button className="modal-close" onClick={() => setSelectedTask(null)}>
               <FontAwesomeIcon icon={faXmark} />
@@ -239,16 +289,9 @@ function TasksPage() {
 
             <div className="modal-main">
               <div className="modal-map">
-                <MapContainer 
-                  center={selectedTask.latitude && selectedTask.longitude ? [selectedTask.latitude, selectedTask.longitude] : (selectedTask.city && governorateCoordinates[selectedTask.city] ? governorateCoordinates[selectedTask.city] : [36.8065, 10.1815])} 
-                  zoom={13} 
-                  style={{ height: '100%', width: '100%' }}
-                >
+                <MapContainer center={mapCenter(selectedTask)} zoom={13} style={{ height: '100%', width: '100%' }}>
                   <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                  <Marker 
-                    position={selectedTask.latitude && selectedTask.longitude ? [selectedTask.latitude, selectedTask.longitude] : (selectedTask.city && governorateCoordinates[selectedTask.city] ? governorateCoordinates[selectedTask.city] : [36.8065, 10.1815])} 
-                    icon={locationIcon}
-                  >
+                  <Marker position={mapCenter(selectedTask)} icon={locationIcon}>
                     <Popup>{selectedTask.title}</Popup>
                   </Marker>
                 </MapContainer>
@@ -258,15 +301,29 @@ function TasksPage() {
               <h2 className="modal-title">{selectedTask.title}</h2>
 
               <div className="modal-meta">
-                <div className="modal-meta-item">
-                  <FontAwesomeIcon icon={faUser} /> Posted by {selectedTask.client_name}
+                <div className="modal-meta-item modal-meta-poster">
+                  <ClientAvatar
+                    name={selectedTask.client_name}
+                    image={selectedTask.client_image}
+                    className="modal-poster-avatar"
+                  />
+                  <span>Posted by {selectedTask.client_name}</span>
                 </div>
-                <div className="modal-meta-item">
-                  <FontAwesomeIcon icon={faLocationDot} /> {selectedTask.city}
-                </div>
+                {selectedTask.city && (
+                  <div className="modal-meta-item">
+                    <FontAwesomeIcon icon={faLocationDot} /> {selectedTask.city}
+                  </div>
+                )}
               </div>
-              
+
               <p className="modal-desc">{selectedTask.description}</p>
+
+              {/* Task image, shown after the description */}
+              {taskImageUrl(selectedTask.image_url) && (
+                <div className="modal-task-image">
+                  <img src={taskImageUrl(selectedTask.image_url)} alt={selectedTask.title} />
+                </div>
+              )}
             </div>
 
             <div className="modal-aside">
@@ -274,17 +331,14 @@ function TasksPage() {
               <p>Confirm your interest and connect directly with the client to finalize details.</p>
 
               {selectedTask.rating && (
-                <div className="task-rating" style={{ marginBottom: '16px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <div className="task-rating" style={{ marginBottom: 20 }}>
                   <FontAwesomeIcon icon={faStar} className="star" />
                   <span className="task-rating-val">{selectedTask.rating}</span>
                   <span className="task-rating-max">/ 5.0</span>
                 </div>
               )}
 
-              <button 
-                onClick={() => handleAction(selectedTask)}
-                className="modal-book-btn"
-              >
+              <button onClick={() => handleAction(selectedTask)} className="modal-book-btn">
                 <FontAwesomeIcon icon={faCheckCircle} /> Book Now
               </button>
 

@@ -38,6 +38,7 @@ export default function Chat() {
   const [editingMessageId, setEditingMessageId] = useState(null);
   const [providerServices, setProviderServices] = useState([]);
   const [selectedServiceId, setSelectedServiceId] = useState("");
+  const [quotationError, setQuotationError] = useState("");
 
   const messagesEndRef = useRef(null);
   const currentChatRef = useRef(currentChat);
@@ -76,6 +77,7 @@ export default function Chat() {
     });
     setEditingMessageId(null);
     setSelectedServiceId("");
+    setQuotationError("");
     setShowQuotationModal(true);
     fetchProviderServices();
   };
@@ -92,6 +94,7 @@ export default function Chat() {
     });
     setEditingMessageId(msgId);
     setSelectedServiceId("");
+    setQuotationError("");
     setShowQuotationModal(true);
     fetchProviderServices();
   };
@@ -229,11 +232,31 @@ export default function Chat() {
     typingTimeoutRef.current = setTimeout(() => socket.emit("stopTyping", currentChat.id), 1500);
   };
 
-  const existingQuotationMsg = messages.find(m => {
-    try { return JSON.parse(m.content).type === "quotation"; } catch (e) { return false; }
-  });
-  const existingQuotationData = existingQuotationMsg ? JSON.parse(existingQuotationMsg.content) : null;
-  const canSendOrUpdate = !existingQuotationMsg || existingQuotationData?.status !== 'accepted';
+  // Walk the message list backwards to find the MOST RECENT quotation in
+  // this conversation (not the first one — messages.find() would always
+  // return the oldest quotation ever sent, which meant that once any past
+  // quotation in the chat history was accepted, the "Send Quotation" button
+  // disappeared forever, even for a brand new, unrelated job).
+  const findLatestQuotation = (msgs) => {
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      try {
+        const parsed = JSON.parse(msgs[i].content);
+        if (parsed.type === "quotation") return { msg: msgs[i], data: parsed };
+      } catch (e) { /* not JSON / not a quotation, keep scanning */ }
+    }
+    return null;
+  };
+
+  const latestQuotation = findLatestQuotation(messages);
+  const existingQuotationMsg  = latestQuotation?.msg  ?? null;
+  const existingQuotationData = latestQuotation?.data ?? null;
+
+  // A new quotation can be sent/updated unless the latest one is still
+  // "pending" (awaiting the client's response). Once it's "accepted" or
+  // "declined", the provider is free to send a brand new quotation for
+  // another job, while the full chat history (including the old quotation
+  // card) stays visible above.
+  const canSendOrUpdate = !existingQuotationMsg || existingQuotationData?.status !== 'pending';
 
   // ── send message ──────────────────────────────────────────────────────────
 
@@ -262,12 +285,19 @@ export default function Chat() {
     e.preventDefault();
     if (!quotation.items.length || !quotation.duration || !currentChat || !socket) return;
 
+    if (!selectedServiceId) {
+      setQuotationError("Please select a service before sending the quotation.");
+      return;
+    }
+    setQuotationError("");
+
     const totalHT  = calcTotal(quotation.items);
     const totalTVA = calcTVA(quotation.items);
     const totalTTC = calcTTC(quotation.items);
 
     const content = JSON.stringify({
       type: "quotation",
+      serviceId: selectedServiceId || null,
       items: quotation.items,
       duration: quotation.duration,
       startDate: quotation.startDate,
@@ -281,6 +311,10 @@ export default function Chat() {
       status: "pending",
     });
 
+    // Always sent as a brand new message — even when re-opening the modal
+    // via "Update Quotation" on an already-resolved (accepted/declined)
+    // quotation, this creates a fresh quotation card rather than mutating
+    // the old one, so chat history keeps every quotation ever sent.
     const tempMsg = {
       id: `temp-${Date.now()}`, content,
       sender_id: session.user.id,
@@ -519,13 +553,10 @@ export default function Chat() {
               {session.user.role === "provider" && canSendOrUpdate && (
                 <button
                   className="db-cta"
-                  onClick={() => existingQuotationMsg
-                    ? openModalForEdit(existingQuotationData, existingQuotationMsg.id)
-                    : openModalForNew()
-                  }
+                  onClick={() => openModalForNew()}
                 >
                   <FaFileInvoiceDollar />
-                  <span style={{ marginLeft: '6px' }}>{existingQuotationMsg ? "Update Quotation" : "Send Quotation"}</span>
+                  <span style={{ marginLeft: '6px' }}>Send Quotation</span>
                 </button>
               )}
             </div>
@@ -595,27 +626,41 @@ export default function Chat() {
             </div>
             <form onSubmit={handleSendQuotation}>
 
-              {/* ── Service selector (providers only) ── */}
-              {providerServices.length > 0 && (
-                <div className="db-form-group" style={{ marginBottom: '16px' }}>
-                  <label className="db-form-label">Pre-fill from one of your services</label>
+              {/* ── Service selector (providers only) — required, since a
+                   quotation must be linked to a service for a booking to
+                   be created when the client accepts it. ── */}
+              <div className="db-form-group" style={{ marginBottom: '16px' }}>
+                <label className="db-form-label">
+                  Service <span style={{ color: 'var(--danger, #d33)' }}>*</span>
+                </label>
+                {providerServices.length > 0 ? (
                   <select
                     className="db-form-input"
                     value={selectedServiceId}
-                    onChange={(e) => handleServiceSelect(e.target.value)}
+                    onChange={(e) => { handleServiceSelect(e.target.value); setQuotationError(""); }}
+                    required
                   >
-                    <option value="">— Select a service to pre-fill —</option>
+                    <option value="">— Select a service —</option>
                     {providerServices.map(svc => (
                       <option key={svc.id} value={svc.id}>
                         {svc.title}{svc.price != null ? ` — ${parseFloat(svc.price).toFixed(3)} TND` : ""}
                       </option>
                     ))}
                   </select>
-                  <small style={{ color: 'var(--color-text-muted, #888)', fontSize: '11px', marginTop: '4px', display: 'block' }}>
-                    Selecting a service fills in the first line item. You can still edit all fields freely.
-                  </small>
-                </div>
-              )}
+                ) : (
+                  <p style={{ fontSize: '12px', color: 'var(--danger, #d33)', margin: 0 }}>
+                    You have no services yet. Add a service in your dashboard before sending a quotation.
+                  </p>
+                )}
+                <small style={{ color: 'var(--color-text-muted, #888)', fontSize: '11px', marginTop: '4px', display: 'block' }}>
+                  Selecting a service fills in the first line item and links this quotation to it. You can still edit all fields freely.
+                </small>
+                {quotationError && (
+                  <p style={{ fontSize: '12px', color: 'var(--danger, #d33)', marginTop: '6px' }}>
+                    {quotationError}
+                  </p>
+                )}
+              </div>
 
               {/* Provider fiscal info */}
               <div className="db-form-row">
@@ -769,7 +814,13 @@ export default function Chat() {
               </div>
 
               <div className="db-modal-actions">
-                <button type="submit" className="db-cta" style={{ width: '100%', justifyContent: 'center' }}>
+                <button
+                  type="submit"
+                  className="db-cta"
+                  style={{ width: '100%', justifyContent: 'center', opacity: !selectedServiceId ? 0.5 : 1 }}
+                  disabled={!selectedServiceId}
+                  title={!selectedServiceId ? "Select a service first" : undefined}
+                >
                   Envoyer au client
                 </button>
               </div>

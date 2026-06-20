@@ -56,6 +56,51 @@ const StatusBadge = ({ status }) => {
 
 const Spinner = () => <div className="db-spinner-wrap"><div className="db-spinner" /></div>;
 
+// ── Confirm Modal (generic, used for destructive actions like cancel) ─────────
+function ConfirmModal({ title, message, confirmLabel = "Confirm", danger = true, onConfirm, onClose }) {
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleConfirm = async () => {
+    setSubmitting(true);
+    try {
+      await onConfirm();
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="db-modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="db-modal" style={{ maxWidth: 420 }}>
+        <div className="db-modal-header">
+          <h3 className="db-modal-title">{title}</h3>
+          <button className="db-icon-btn" onClick={onClose}>{Icon.x}</button>
+        </div>
+        <p style={{ fontSize: 13.5, color: "var(--ink-mid)", lineHeight: 1.5, padding: "4px 0 18px" }}>
+          {message}
+        </p>
+        <div className="db-modal-actions">
+          <button className="db-cta db-cta--outline" onClick={onClose} style={{ flex: 1, justifyContent: "center" }}>
+            Keep it
+          </button>
+          <button
+            className="db-cta"
+            onClick={handleConfirm}
+            disabled={submitting}
+            style={{
+              flex: 1, justifyContent: "center",
+              background: danger ? "var(--danger)" : undefined,
+              opacity: submitting ? 0.6 : 1,
+            }}
+          >
+            {submitting ? "Cancelling…" : confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Service Modal ─────────────────────────────────────────────────────────────
 const CATEGORIES = ["Plumbing","Electrical","Carpentry","Painting","Cleaning","Gardening","Moving","IT Support","Tutoring","Music Lessons"];
 
@@ -66,7 +111,6 @@ function ServiceModal({ service, onClose, onSave }) {
     description: service?.description || "",
   });
   const [saving, setSaving] = useState(false);
-
   const handleSave = async () => {
     if (!form.title || !form.category) return;
     setSaving(true);
@@ -133,15 +177,40 @@ const STATUS_PROGRESS_COLOR = {
   cancelled: "var(--danger)",
 };
 
-function BookingCard({ b, onStatusChange }) {
+// Thresholds the drag handle can snap to. "cancelled" is intentionally
+// excluded — it stays dropdown-only, never reachable by dragging.
+const DRAG_SNAP_STATUSES = ["pending", "confirmed", "in-progress", "completed"];
+
+// Given a raw 0-100 drop position, find the closest of the draggable
+// statuses by comparing against each status's defined progress value.
+const nearestDragStatus = (pct) => {
+  let closest = DRAG_SNAP_STATUSES[0];
+  let bestDist = Infinity;
+  for (const s of DRAG_SNAP_STATUSES) {
+    const dist = Math.abs(STATUS_PROGRESS[s] - pct);
+    if (dist < bestDist) {
+      bestDist = dist;
+      closest = s;
+    }
+  }
+  return closest;
+};
+
+function BookingCard({ b, onStatusChange, onCancel }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [status, setStatus] = useState(b.status);
   const [updating, setUpdating] = useState(false);
   const [progress, setProgress] = useState(STATUS_PROGRESS[b.status] ?? 0);
   const [dragging, setDragging] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
 
   const barRef = React.useRef(null);
   const menuRef = React.useRef(null);
+  // Tracks the live drag position so the mouseup/touchend handler (which
+  // closes over stale state from when the drag started) can read the
+  // latest value without waiting on a re-render.
+  const dragPctRef = React.useRef(progress);
 
   React.useEffect(() => {
     const handleOutsideClick = (e) => {
@@ -177,16 +246,52 @@ function BookingCard({ b, onStatusChange }) {
     return Math.min(100, Math.max(0, Math.round(((clientX - left) / width) * 100)));
   };
 
+  // Called once dragging stops: snaps the dropped position to the nearest
+  // status threshold and persists it the same way the dropdown menu does,
+  // via onStatusChange -> PATCH /bookings/:id/status. If the snapped status
+  // is unchanged (e.g. user drags then releases at the same spot), the bar
+  // still visually settles back to that status's exact progress value.
+  const commitDragStatus = async () => {
+    const finalPct = dragPctRef.current;
+    const snapped = nearestDragStatus(finalPct);
+
+    if (snapped === status) {
+      // No status change, just snap the bar back to the exact value.
+      setProgress(STATUS_PROGRESS[snapped] ?? 0);
+      return;
+    }
+
+    setUpdating(true);
+    try {
+      await onStatusChange(b.id, snapped);
+      setStatus(snapped);
+      setProgress(STATUS_PROGRESS[snapped] ?? 0);
+    } catch (e) {
+      console.error(e);
+      // Revert visually if the backend update failed.
+      setProgress(STATUS_PROGRESS[status] ?? 0);
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   const onBarMouseDown = (e) => {
     e.preventDefault();
     setDragging(true);
-    setProgress(calcPct(e.clientX));
+    const startPct = calcPct(e.clientX);
+    dragPctRef.current = startPct;
+    setProgress(startPct);
 
-    const onMove = (ev) => setProgress(calcPct(ev.clientX));
+    const onMove = (ev) => {
+      const pct = calcPct(ev.clientX);
+      dragPctRef.current = pct;
+      setProgress(pct);
+    };
     const onUp = () => {
       setDragging(false);
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
+      commitDragStatus();
     };
 
     document.addEventListener("mousemove", onMove);
@@ -195,13 +300,20 @@ function BookingCard({ b, onStatusChange }) {
 
   const onBarTouchStart = (e) => {
     setDragging(true);
-    setProgress(calcPct(e.touches[0].clientX));
+    const startPct = calcPct(e.touches[0].clientX);
+    dragPctRef.current = startPct;
+    setProgress(startPct);
 
-    const onMove = (ev) => setProgress(calcPct(ev.touches[0].clientX));
+    const onMove = (ev) => {
+      const pct = calcPct(ev.touches[0].clientX);
+      dragPctRef.current = pct;
+      setProgress(pct);
+    };
     const onEnd = () => {
       setDragging(false);
       document.removeEventListener("touchmove", onMove);
       document.removeEventListener("touchend", onEnd);
+      commitDragStatus();
     };
 
     document.addEventListener("touchmove", onMove);
@@ -367,6 +479,43 @@ function BookingCard({ b, onStatusChange }) {
           ))}
         </div>
       </div>
+
+      {/* Cancel — only for active bookings, not completed/cancelled/pending */}
+      {["confirmed", "in-progress"].includes(status) && (
+        <button
+          type="button"
+          className="db-cal-booking-cancel-btn"
+          onClick={() => setShowCancelConfirm(true)}
+          disabled={updating || cancelling}
+          style={{
+            marginTop: 12, width: "100%", padding: "8px 12px",
+            fontSize: 12.5, fontWeight: 600, color: "var(--danger)",
+            background: "transparent", border: "1px solid var(--danger)",
+            borderRadius: "var(--radius-md, 8px)", cursor: "pointer",
+            opacity: (updating || cancelling) ? 0.5 : 1,
+          }}
+        >
+          Cancel booking
+        </button>
+      )}
+
+      {showCancelConfirm && (
+        <ConfirmModal
+          title="Cancel this booking?"
+          message="If you cancel, you will no longer be able to follow this booking or its task. This cannot be undone."
+          confirmLabel="Cancel booking"
+          onClose={() => setShowCancelConfirm(false)}
+          onConfirm={async () => {
+            setCancelling(true);
+            try {
+              await onCancel(b.id);
+              setShowCancelConfirm(false);
+            } finally {
+              setCancelling(false);
+            }
+          }}
+        />
+      )}
     </article>
   );
 }
@@ -414,6 +563,20 @@ function CalendarTab({ bookings, loading, fetchBookings }) {
         body: JSON.stringify({ status: newStatus }),
       });
       if (res.ok) fetchBookings();
+    } catch (err) { console.error(err); }
+  };
+
+  const handleCancelBooking = async (bookingId) => {
+    try {
+      const res = await fetch(`${API}/bookings/${bookingId}/cancel`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) fetchBookings();
+      else {
+        const err = await res.json().catch(() => ({}));
+        console.error("Cancel failed:", err.message || res.status);
+      }
     } catch (err) { console.error(err); }
   };
 
@@ -508,12 +671,116 @@ function CalendarTab({ bookings, loading, fetchBookings }) {
               {selectedBookings.length === 0 ? (
                 <p className="db-empty-small">No bookings on this day.</p>
               ) : selectedBookings.map(b => (
-                <BookingCard key={b.id} b={b} onStatusChange={handleStatusUpdate} />
+                <BookingCard key={b.id} b={b} onStatusChange={handleStatusUpdate} onCancel={handleCancelBooking} />
               ))}
             </div>
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── Mini Calendar Card (Overview) ─────────────────────────────────────────────
+function MiniCalendarCard({ bookings, loading, onStatusChange, onCancel, onViewAll }) {
+  const today = new Date();
+  const [currentDate, setCurrentDate] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
+  const [selectedDay, setSelectedDay] = useState(today.getDate());
+
+  const year  = currentDate.getFullYear();
+  const month = currentDate.getMonth();
+
+  const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const DAY_NAMES   = ["M","T","W","T","F","S","S"];
+
+  const firstDay  = new Date(year, month, 1);
+  const lastDay   = new Date(year, month + 1, 0);
+  const startDow  = (firstDay.getDay() + 6) % 7;
+  const totalDays = lastDay.getDate();
+
+  const cells = [];
+  for (let i = 0; i < startDow; i++) cells.push(null);
+  for (let d = 1; d <= totalDays; d++) cells.push(d);
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  const bookingsByDate = {};
+  (bookings || []).forEach(b => {
+    if (!b.date) return;
+    const key = b.date.slice(0, 10);
+    if (!bookingsByDate[key]) bookingsByDate[key] = [];
+    bookingsByDate[key].push(b);
+  });
+
+  const pad = n => String(n).padStart(2, "0");
+  const cellKey  = d => `${year}-${pad(month + 1)}-${pad(d)}`;
+  const todayStr = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+  const selKey   = selectedDay ? cellKey(selectedDay) : null;
+  const selBookings = selKey ? (bookingsByDate[selKey] || []) : [];
+
+  const changeMonth = (delta) => {
+    setCurrentDate(new Date(year, month + delta, 1));
+    setSelectedDay(null);
+  };
+
+  return (
+    <div className="db-card db-mini-cal">
+      <div className="db-card-head">
+        <h3>Calendar</h3>
+        <button className="db-link" onClick={onViewAll}>View all {Icon.arrow}</button>
+      </div>
+
+      {loading ? <Spinner /> : (
+        <>
+          <div className="db-mini-cal-nav">
+            <button className="db-icon-btn" onClick={() => changeMonth(-1)}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <span className="db-mini-cal-month">{MONTH_NAMES[month]} {year}</span>
+            <button className="db-icon-btn" onClick={() => changeMonth(1)}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+          </div>
+
+          <div className="db-mini-cal-grid">
+            {DAY_NAMES.map((d, i) => <div key={i} className="db-mini-cal-dayname">{d}</div>)}
+            {cells.map((day, i) => {
+              if (!day) return <div key={`e-${i}`} className="db-mini-cal-cell db-mini-cal-cell--empty" />;
+              const key = cellKey(day);
+              const dayBks = bookingsByDate[key] || [];
+              const isToday = key === todayStr;
+              const isSel   = selectedDay === day;
+              return (
+                <button
+                  type="button"
+                  key={key}
+                  className={`db-mini-cal-cell${isToday ? " db-mini-cal-cell--today" : ""}${isSel ? " db-mini-cal-cell--selected" : ""}`}
+                  onClick={() => setSelectedDay(day === selectedDay ? null : day)}
+                >
+                  <span>{day}</span>
+                  {dayBks.length > 0 && <span className="db-mini-cal-dot" />}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="db-mini-cal-detail">
+            {!selectedDay ? (
+              <p className="db-empty-small">Select a day to see its bookings.</p>
+            ) : selBookings.length === 0 ? (
+              <p className="db-empty-small">No bookings on {MONTH_NAMES[month]} {selectedDay}.</p>
+            ) : (
+              <>
+                <p className="db-mini-cal-detail-label">
+                  {MONTH_NAMES[month]} {selectedDay} — {selBookings.length} booking{selBookings.length !== 1 ? "s" : ""}
+                </p>
+                <div className="db-mini-cal-bookings">
+                  {selBookings.map(b => <BookingCard key={b.id} b={b} onStatusChange={onStatusChange} onCancel={onCancel} />)}
+                </div>
+              </>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -621,6 +888,31 @@ export default function ProviderDashboard() {
     } catch (e) { console.error(e); }
   };
 
+  const handleCalendarStatusUpdate = async (bookingId, newStatus) => {
+    try {
+      const res = await fetch(`${API}/bookings/${bookingId}/status`, {
+        method: "PATCH",
+        headers: authHeaders(token),
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (res.ok) { fetchBookings(); fetchStats(); }
+    } catch (err) { console.error(err); }
+  };
+
+  const handleCalendarCancelBooking = async (bookingId) => {
+    try {
+      const res = await fetch(`${API}/bookings/${bookingId}/cancel`, {
+        method: "DELETE",
+        headers: authHeaders(token),
+      });
+      if (res.ok) { fetchBookings(); fetchStats(); }
+      else {
+        const err = await res.json().catch(() => ({}));
+        console.error("Cancel failed:", err.message || res.status);
+      }
+    } catch (err) { console.error(err); }
+  };
+
   const TABS = [
     { id: "overview",  label: "Overview",  icon: Icon.grid      },
     { id: "calendar",  label: "Calendar",  icon: Icon.calendar  },
@@ -706,39 +998,14 @@ export default function ProviderDashboard() {
             </div>
 
             <div className="db-two-col">
-              {/* Booking requests */}
-              <div className="db-card">
-                <div className="db-card-head">
-                  <h3>Booking Requests</h3>
-                  <button className="db-link" onClick={() => setTab("calendar")}>View all {Icon.arrow}</button>
-                </div>
-                {loadingRequests ? <Spinner /> : bookingRequests.length === 0
-                  ? <p className="db-empty-small">No pending booking requests.</p>
-                  : bookingRequests.map(b => (
-                    <div className="db-booking-row" key={b.id}>
-                      <div className="db-booking-avatar">
-                        {b.client_image
-                          ? <img src={resolveImage(b.client_image)} alt={b.client_name} className="db-avatar-img" onError={e => e.target.style.display = "none"} />
-                          : (b.client_name || "Client").split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()
-                        }
-                      </div>
-                      <div className="db-booking-info">
-                        <span className="db-booking-client">{b.client_name || b.client}</span>
-                        {b.amount && <span className="db-booking-price">{b.amount} TND</span>}
-                        <span className="db-booking-meta">{Icon.clock} {new Date(b.date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} · {b.time}</span>
-                        <span className="db-booking-service">{b.service_name || b.service}</span>
-                        {b.details && (
-                          <div className="db-booking-details-text"><strong>Client details:</strong> {b.details}</div>
-                        )}
-                      </div>
-                      <div className="db-booking-right">
-                        <button className="db-accept-btn" onClick={() => handleAcceptBooking(b.id)}>{Icon.check} Accept</button>
-                        <button className="db-decline-btn" onClick={() => handleDeclineBooking(b.id)}>{Icon.x} Decline</button>
-                      </div>
-                    </div>
-                  ))
-                }
-              </div>
+              {/* Mini Calendar (replaces Booking Requests) */}
+              <MiniCalendarCard
+                bookings={bookings}
+                loading={loadingBookings}
+                onStatusChange={handleCalendarStatusUpdate}
+                onCancel={handleCalendarCancelBooking}
+                onViewAll={() => setTab("calendar")}
+              />
 
               {/* Services summary */}
               <div className="db-card">
@@ -939,5 +1206,3 @@ export default function ProviderDashboard() {
     </div>
   );
 }
-
-const AVATAR_COLORS = ["#6366f1","#0ea5e9","#10b981","#f59e0b","#ec4899","#8b5cf6","#14b8a6"];

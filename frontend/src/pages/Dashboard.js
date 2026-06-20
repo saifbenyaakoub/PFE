@@ -33,10 +33,14 @@ const Icon = {
   close:    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
   photo:    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>,
   warn:     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>,
+  trash:    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>,
 };
 
+// ── Status meta — covers both task statuses and booking statuses ──────────────
 const TASK_STATUS_META = {
   open:          { label: "Open",        cls: "db-badge--open"        },
+  pending:       { label: "Pending",     cls: "db-badge--pending"     },
+  confirmed:     { label: "Confirmed",   cls: "db-badge--confirmed"   },
   "in-progress": { label: "In Progress", cls: "db-badge--in-progress" },
   closed:        { label: "Closed",      cls: "db-badge--closed"      },
   completed:     { label: "Completed",   cls: "db-badge--completed"   },
@@ -66,6 +70,55 @@ const Stars = ({ n }) => (
     ))}
   </span>
 );
+
+// ── Confirm Modal (generic, used for destructive actions like cancel) ─────────
+function ConfirmModal({ title, message, confirmLabel = "Confirm", onConfirm, onClose }) {
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleConfirm = async () => {
+    setSubmitting(true);
+    try {
+      await onConfirm();
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="db-modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="db-modal" style={{ maxWidth: 420, padding: 24 }}>
+        <div className="db-card-head" style={{ marginBottom: 4 }}>
+          <h3 style={{ margin: 0 }}>{title}</h3>
+          <button className="db-icon-btn" onClick={onClose}>{Icon.close}</button>
+        </div>
+        <p style={{ fontSize: 13.5, color: "var(--ink3)", lineHeight: 1.5, padding: "8px 0 18px" }}>
+          {message}
+        </p>
+        <div className="db-modal-actions" style={{ display: "flex", gap: 10 }}>
+          <button
+            className="db-cta db-cta--outline"
+            onClick={onClose}
+            style={{ flex: 1, justifyContent: "center" }}
+          >
+            Keep it
+          </button>
+          <button
+            className="db-cta"
+            onClick={handleConfirm}
+            disabled={submitting}
+            style={{
+              flex: 1, justifyContent: "center",
+              background: "var(--danger)",
+              opacity: submitting ? 0.6 : 1,
+            }}
+          >
+            {submitting ? "Cancelling…" : confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ── PostTaskModal ─────────────────────────────────────────────────────────────
 function PostTaskModal({ onClose, session }) {
@@ -117,37 +170,19 @@ function PostTaskModal({ onClose, session }) {
         <div className="db-modal-left">
           <button className="db-modal-close" onClick={onClose}>{Icon.close}</button>
 
-          {/* Avatar */}
-          <div className="db-modal-avatar">
-            {profileImageUrl
-              ? <img src={profileImageUrl} alt={name} />
-              : <span>{initials}</span>
-            }
-          </div>
-          <p className="db-modal-username">{name}</p>
-          <p className="db-modal-userrole">Client · FixHub</p>
-
-          {/* Photo upload */}
-          <div className="db-modal-upload-wrap">
-            <p className="db-modal-upload-label">
-              Task Photo <span className="db-modal-upload-opt">(optional)</span>
-            </p>
-            {photoPreview ? (
-              <div className="db-modal-photo-preview">
-                <img src={photoPreview} alt="preview" />
-                <button onClick={() => { setPhoto(null); setPhotoPreview(null); }}>✕ Remove</button>
-              </div>
-            ) : (
-              <label className="db-modal-photo-drop">
-                {Icon.photo}
-                <span>Click to upload</span>
-                <span className="db-modal-photo-hint">JPG, PNG · max 5MB</span>
-                <input type="file" accept="image/*" onChange={handlePhotoChange} style={{ display: "none" }} />
-              </label>
-            )}
+          <div className="db-modal-left-top">
+            <div className="db-modal-avatar">
+              {profileImageUrl
+                ? <img src={profileImageUrl} alt={name} />
+                : <span>{initials}</span>
+              }
+            </div>
+            <div className="db-modal-id">
+              <p className="db-modal-username">{name}</p>
+              <p className="db-modal-userrole">Client · FixHub</p>
+            </div>
           </div>
 
-          {/* Trust tips */}
           <ul className="db-modal-tips">
             {[
               { icon: "⚡", text: "Get offers in under 2 hours" },
@@ -196,6 +231,27 @@ function PostTaskModal({ onClose, session }) {
                     <span style={{ color: form.title.length > 3 ? "var(--green)" : "transparent" }}>✓ Good title</span>
                     <span>{form.title.length}/255</span>
                   </div>
+                </div>
+
+                <div className="db-form-group">
+                  <label className="db-form-label">
+                    Task Photo <span className="db-form-label-opt">(optional)</span>
+                  </label>
+                  {photoPreview ? (
+                    <div className="db-form-photo-preview">
+                      <img src={photoPreview} alt="preview" />
+                      <button type="button" onClick={() => { setPhoto(null); setPhotoPreview(null); }}>
+                        {Icon.close} Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="db-form-photo-drop">
+                      {Icon.photo}
+                      <span>Click to upload a photo</span>
+                      <span className="db-form-photo-hint">JPG, PNG · max 5MB</span>
+                      <input type="file" accept="image/*" onChange={handlePhotoChange} style={{ display: "none" }} />
+                    </label>
+                  )}
                 </div>
 
                 <div className="db-form-row">
@@ -308,7 +364,6 @@ function RecommendationBot() {
 
   return (
     <div className="db-card db-bot">
-      {/* Header */}
       <div className="db-bot-head">
         <div className="db-bot-avatar">{Icon.wrench}</div>
         <div className="db-bot-meta">
@@ -323,7 +378,6 @@ function RecommendationBot() {
         </button>
       </div>
 
-      {/* Messages */}
       <div className="db-bot-messages">
         {messages.map((m, i) => (
           <div key={i} className={`db-bot-row db-bot-row--${m.role}`}>
@@ -348,7 +402,6 @@ function RecommendationBot() {
         <div ref={bottomRef} />
       </div>
 
-      {/* Suggestions */}
       {messages.length === 1 && (
         <div className="db-bot-suggestions">
           {SUGGESTIONS.map((s, i) => (
@@ -357,7 +410,6 @@ function RecommendationBot() {
         </div>
       )}
 
-      {/* Input */}
       <div className="db-bot-input-row">
         <input
           className="db-bot-input"
@@ -380,58 +432,29 @@ function RecommendationBot() {
 }
 
 // ── Task Card ─────────────────────────────────────────────────────────────────
-const TASK_STATUS_OPTIONS = [
-  { value: "open",        label: "Open",        cls: "db-badge--open"        },
-  { value: "in-progress", label: "In Progress", cls: "db-badge--in-progress" },
-  { value: "completed",   label: "Completed",   cls: "db-badge--completed"   },
-  { value: "cancelled",   label: "Cancelled",   cls: "db-badge--cancelled"   },
-];
-
-function TaskCard({ task }) {
+function TaskCard({ task, onCancelled }) {
   const session = getSession();
-  const [status, setStatus]         = useState(task.status || "open");
-  const [menuOpen, setMenuOpen]     = useState(false);
-  const [updatingStatus, setUpdatingStatus] = useState(false);
 
-  const [comment, setComment]       = useState("");
-  const [rating, setRating]         = useState(0);
+  const [comment, setComment]         = useState("");
+  const [rating, setRating]           = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
-  const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted]   = useState(false);
+  const [submitting, setSubmitting]   = useState(false);
+  const [submitted, setSubmitted]     = useState(false);
   const [commentError, setCommentError] = useState("");
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [cancelError, setCancelError] = useState("");
 
-  const menuRef = React.useRef(null);
+  // ── Status logic:
+  // task.status / task.bookingStatus is now kept in sync directly by the
+  // backend whenever a linked booking's status changes (updateBookingStatus
+  // -> tasks.status), so this is the live value, not derived at read time.
+  const displayStatus = task.bookingStatus ?? "open";
+  const tm = TASK_STATUS_META[displayStatus] || TASK_STATUS_META.open;
 
-  // Close menu on outside click
-  React.useEffect(() => {
-    const handler = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  const handleStatusChange = async (newStatus) => {
-    setMenuOpen(false);
-    if (newStatus === status) return;
-    setUpdatingStatus(true);
-    try {
-      const res = await fetch(`${API_URL}/tasks/${task.id}/status`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session?.token}`,
-        },
-        body: JSON.stringify({ status: newStatus }),
-      });
-      if (!res.ok) throw new Error("Failed to update status");
-      setStatus(newStatus);
-    } catch (e) {
-      // revert silently — could show a toast here
-    } finally {
-      setUpdatingStatus(false);
-    }
-  };
+  // A task can be cancelled by the client at any point before it's
+  // completed — even with an active booking, cancelling the task removes
+  // that booking too (handled server-side in DELETE /tasks/:id).
+  const canCancel = displayStatus !== "completed" && displayStatus !== "cancelled";
 
   const handleCommentSubmit = async () => {
     if (!comment.trim()) return;
@@ -452,10 +475,27 @@ function TaskCard({ task }) {
     } catch (e) {
       setCommentError(e.message);
     } finally {
-      setSubmitting(false); }
+      setSubmitting(false);
+    }
   };
 
-  const tm = TASK_STATUS_META[status] || TASK_STATUS_META.open;
+  const handleCancelTask = async () => {
+    setCancelError("");
+    try {
+      const res = await fetch(`${API_URL}/tasks/${task.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${session?.token}` },
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.message || "Failed to cancel task");
+      }
+      setShowCancelConfirm(false);
+      onCancelled?.(task.id);
+    } catch (e) {
+      setCancelError(e.message);
+    }
+  };
 
   return (
     <div className="db-task-card">
@@ -466,33 +506,10 @@ function TaskCard({ task }) {
         <div className="db-task-top">
           <span className="db-task-title">{task.title}</span>
 
-          {/* ── Status menu ── */}
-          <div className="db-task-status-wrap" ref={menuRef}>
-            <button
-              className={`db-badge ${tm.cls} db-badge--clickable`}
-              onClick={() => setMenuOpen(o => !o)}
-              disabled={updatingStatus}
-              title="Change status"
-            >
-              {updatingStatus ? <span className="db-spinner" style={{ width: 10, height: 10, borderWidth: 1.5 }} /> : tm.label}
-              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: 4, opacity: 0.7 }}><polyline points="6 9 12 15 18 9"/></svg>
-            </button>
-            {menuOpen && (
-              <div className="db-status-menu">
-                {TASK_STATUS_OPTIONS.map(opt => (
-                  <button
-                    key={opt.value}
-                    className={`db-status-menu-item ${opt.value === status ? "db-status-menu-item--active" : ""}`}
-                    onClick={() => handleStatusChange(opt.value)}
-                  >
-                    <span className={`db-status-dot db-status-dot--${opt.value}`} />
-                    {opt.label}
-                    {opt.value === status && <span style={{ marginLeft: "auto", opacity: 0.5 }}>{Icon.check}</span>}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          {/* ── Read-only status badge — driven by booking status ── */}
+          <span className={`db-badge ${tm.cls}`}>
+            {tm.label}
+          </span>
         </div>
 
         <div className="db-task-meta">
@@ -567,7 +584,38 @@ function TaskCard({ task }) {
           )}
         </div>
 
+        {/* ── Cancel task ── */}
+        {canCancel && (
+          <button
+            type="button"
+            className="db-task-cancel-btn"
+            onClick={() => setShowCancelConfirm(true)}
+            style={{
+              marginTop: 12, width: "100%", padding: "8px 12px",
+              fontSize: 12.5, fontWeight: 600, color: "var(--danger)",
+              background: "transparent", border: "1px solid var(--danger)",
+              borderRadius: "var(--r-sm, 8px)", cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+            }}
+          >
+            {Icon.trash} Cancel task
+          </button>
+        )}
+        {cancelError && (
+          <p style={{ fontSize: 11, color: "var(--danger)", marginTop: 4 }}>{cancelError}</p>
+        )}
+
       </div>
+
+      {showCancelConfirm && (
+        <ConfirmModal
+          title="Cancel this task?"
+          message="If you cancel, you will no longer be able to follow this task or its service. Any active booking for it will also be cancelled. This cannot be undone."
+          confirmLabel="Cancel task"
+          onClose={() => setShowCancelConfirm(false)}
+          onConfirm={handleCancelTask}
+        />
+      )}
     </div>
   );
 }
@@ -584,14 +632,14 @@ function ClientDashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
   const session  = getSession();
 
-  // On mount, honour ?tab= query param (e.g. from "Book Now" redirect)
   useEffect(() => {
     const tabParam = searchParams.get("tab");
     if (tabParam) {
       setTab(tabParam);
-      setSearchParams({}, { replace: true }); // clean up the URL
+      setSearchParams({}, { replace: true });
     }
   }, []);
+
   const user     = session?.user;
   const name     = user?.name || "Client";
   const initials = name.trim().split(/\s+/).map(n => n[0]).join("").toUpperCase().slice(0, 2);
@@ -621,6 +669,13 @@ function ClientDashboard() {
   const stats        = dashData?.stats        || {};
   const appliedTasks = dashData?.appliedTasks || [];
 
+  // Called by a TaskCard right after a successful cancel — refetches so the
+  // task disappears from every list/KPI immediately, rather than waiting
+  // for the next natural reload.
+  const handleTaskCancelled = () => {
+    fetchDashboard();
+  };
+
   const kpiCards = [
     { label: "Total Spent",     value: stats.totalSpent !== undefined ? `${Number(stats.totalSpent).toLocaleString()} TND` : "—", icon: Icon.check,    color: "var(--info)"    },
     { label: "Completed Jobs",  value: stats.completedJobs  ?? "—", icon: Icon.calendar, color: "var(--green)"   },
@@ -636,17 +691,15 @@ function ClientDashboard() {
         <PostTaskModal onClose={() => { setShowTaskModal(false); fetchDashboard(); }} session={session} />
       )}
 
-      {/* ── Sidebar navigation for dashboard ── */}
+      {/* ── Sidebar ── */}
       <aside className="db-sidebar">
         <div className="db-sidebar-inner">
 
-          {/* Logo */}
           <Link className="db-logo" to="/">
             <span className="db-logo-icon">{Icon.wrench}</span>
             <span className="db-logo-text">Fix<em>Hub</em></span>
           </Link>
 
-          {/* Tab nav — pill style matching site navbar links */}
           <p className="db-sidebar-note">Manage your tasks, messages, and service requests in one place.</p>
           <nav className="db-sidebar-nav">
             {TABS.map(t => (
@@ -662,7 +715,6 @@ function ClientDashboard() {
             ))}
           </nav>
 
-          {/* Right side */}
           <div className="db-sidebar-footer">
             {loadingDash && <div className="db-spinner" style={{ width: 14, height: 14 }} />}
             <button className="db-cta" onClick={() => setShowTaskModal(true)}>
@@ -678,13 +730,11 @@ function ClientDashboard() {
           </div>
 
         </div>
-
       </aside>
 
-      {/* ── Main scrollable content area ── */}
+      {/* ── Main content ── */}
       <main className="db-main">
 
-        {/* Page title row */}
         <div className="db-topbar">
           <div>
             <h1 className="db-page-title">{currentTab?.label}</h1>
@@ -694,7 +744,6 @@ function ClientDashboard() {
           </div>
         </div>
 
-        {/* Error banner */}
         {dashError && (
           <div className="db-error-banner">
             {Icon.warn}
@@ -707,7 +756,6 @@ function ClientDashboard() {
         {tab === "overview" && (
           <div className="db-fade">
 
-            {/* KPI row */}
             <div className="db-kpi-grid">
               {loadingDash
                 ? [1,2,3,4].map(i => <div key={i} className="db-skeleton" style={{ height: 90, borderRadius: "var(--r)" }} />)
@@ -725,7 +773,6 @@ function ClientDashboard() {
               }
             </div>
 
-            {/* Two-column: bot + recent tasks */}
             <div className="db-two-col">
               <RecommendationBot />
 
@@ -754,7 +801,7 @@ function ClientDashboard() {
                   </div>
                 ) : (
                   <div className="db-stack db-stack--scroll">
-                    {appliedTasks.slice(0, 5).map(task => <TaskCard key={task.id} task={task} />)}
+                    {appliedTasks.slice(0, 5).map(task => <TaskCard key={task.id} task={task} onCancelled={handleTaskCancelled} />)}
                     {appliedTasks.length > 5 && (
                       <button className="db-see-all" onClick={() => setTab("tasks")}>
                         See all {appliedTasks.length} tasks {Icon.arrow}
@@ -798,7 +845,7 @@ function ClientDashboard() {
               </div>
             ) : (
               <div className="db-task-grid">
-                {appliedTasks.map(task => <TaskCard key={task.id} task={task} />)}
+                {appliedTasks.map(task => <TaskCard key={task.id} task={task} onCancelled={handleTaskCancelled} />)}
               </div>
             )}
           </div>
