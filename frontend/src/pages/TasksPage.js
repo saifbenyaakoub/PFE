@@ -120,10 +120,7 @@ function TasksPage() {
         const r = await fetch(`${API_URL}/chat/start`, {
           method: "POST",
           headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session.token}` },
-          // taskId lets the resulting conversation/quotation/booking stay
-          // linked back to this exact task, so its status can be synced
-          // correctly on the client dashboard later.
-          body: JSON.stringify({ userId: session.user.id, partnerId: item.client_id, taskId: item.id }),
+          body: JSON.stringify({ userId: session.user.id, partnerId: item.client_id }),
         });
         if (r.ok) { navigate("/dashboard?tab=messages"); return; }
       } catch (e) { console.error(e); }

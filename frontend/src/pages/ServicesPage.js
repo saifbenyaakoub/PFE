@@ -10,10 +10,12 @@ import "./services.css";
 import ServicesFilter from "./ServicesFilter";
 import {
   faHammer, faWrench, faRuler, faPaintBrush, faFaucet, faStar, faLocationDot, faXmark, faCheckCircle, faUser, faSearch,
-  faSprayCan, faTaxi, faCar, faBroom, faLeaf, faBox, faGear
+  faSprayCan, faTaxi, faCar, faBroom, faLeaf, faBox, faGear, faTag
 } from '@fortawesome/free-solid-svg-icons';
 
 const icons = [faHammer, faWrench, faRuler, faPaintBrush, faFaucet, faSprayCan, faTaxi, faCar, faBroom, faLeaf, faBox, faGear];
+
+const ENDPOINT = "http://localhost:5000";
 
 const governorateCoordinates = {
   "Tunis": [36.8065, 10.1815], "Ariana": [36.8665, 10.1647], "Ben Arous": [36.746, 10.228],
@@ -33,6 +35,20 @@ const locationIcon = L.divIcon({
   iconAnchor: [16, 32],
   popupAnchor: [0, -32]
 });
+
+// Same pattern as Navbar.js — resolves a relative upload path or passes through
+// absolute/blob/data URLs untouched.
+const resolveImage = (img) => {
+  if (!img) return null;
+  if (img.startsWith("http") || img.startsWith("blob:") || img.startsWith("data:")) return img;
+  return `${ENDPOINT}/uploads/${img}`;
+};
+
+// The /services endpoint may alias the provider's image under different keys
+// depending on the backend JOIN. Try profileImage first (same field Navbar.js
+// uses on the user object), then fall back to other common aliases.
+const getProviderImage = (item) =>
+  item.profileImage || item.provider_image || item.provider_profileImage || item.providerImage || null;
 
 function ServicesPage() {
   const [items, setItems] = useState([]);
@@ -182,7 +198,15 @@ function ServicesPage() {
 
                       {/* Avatar + title row */}
                       <div className="task-card-top">
-                        <div className="task-avatar">{getInitials(item.provider_name)}</div>
+                        {resolveImage(getProviderImage(item)) ? (
+                          <img
+                            src={resolveImage(getProviderImage(item))}
+                            alt={item.provider_name}
+                            className="task-avatar task-avatar-img"
+                          />
+                        ) : (
+                          <div className="task-avatar">{getInitials(item.provider_name)}</div>
+                        )}
                         <div className="task-card-meta">
                           <h3 className="task-title">{item.title}</h3>
                           <p className="task-client">by <span>{item.provider_name}</span></p>
@@ -193,9 +217,14 @@ function ServicesPage() {
 
                       {/* Tags row */}
                       <div className="task-tags">
-                        <span className="task-tag category">{item.category}</span>
+                        {item.category && (
+                          <span className="task-tag task-tag--category">
+                            <FontAwesomeIcon icon={faTag} />
+                            {item.category}
+                          </span>
+                        )}
                         {item.city && (
-                          <span className="task-tag location">
+                          <span className="task-tag task-tag--location">
                             <FontAwesomeIcon icon={faLocationDot} />
                             {item.city}
                           </span>
@@ -271,8 +300,17 @@ function ServicesPage() {
               <h2 className="modal-title">{selectedService.title}</h2>
 
               <div className="modal-meta">
-                <div className="modal-meta-item">
-                  <FontAwesomeIcon icon={faUser} /> {selectedService.provider_name}
+                <div className="modal-meta-poster">
+                  {resolveImage(getProviderImage(selectedService)) ? (
+                    <img
+                      src={resolveImage(getProviderImage(selectedService))}
+                      alt={selectedService.provider_name}
+                      className="modal-poster-avatar modal-poster-avatar-img"
+                    />
+                  ) : (
+                    <div className="modal-poster-avatar">{getInitials(selectedService.provider_name)}</div>
+                  )}
+                  <span>{selectedService.provider_name}</span>
                 </div>
                 {selectedService.city && (
                   <div className="modal-meta-item">

@@ -295,41 +295,91 @@
   transform: translateY(-1px);
 }
 
-/* Service row (summary) */
+/* Service row (summary) — redesigned: category icon + status dot + rating pill */
 .db-service-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 11px 0;
-  border-bottom: 1.5px solid var(--border);
+  gap: 12px;
+  padding: 12px;
+  margin-bottom: 10px;
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  background: var(--card2);
+  transition: border-color .18s, transform .18s;
 }
 
 .db-service-row:last-child {
-  border-bottom: none;
+  margin-bottom: 0;
 }
 
-.db-service-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
+.db-service-row:hover {
+  border-color: var(--border2);
+  transform: translateY(-1px);
+}
+
+.db-service-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
 }
 
 .db-service-info {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.db-service-name-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
 }
 
 .db-service-name {
-  display: block;
   font-size: 13.5px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.db-service-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ink4);
+  flex-shrink: 0;
+}
+
+.db-service-status-dot--active {
+  background: var(--green);
 }
 
 .db-service-meta {
   font-size: 11.5px;
   color: var(--ink3);
+}
+
+.db-service-rating-pill {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--card);
+  border: 1.5px solid var(--border);
+  border-radius: 100px;
+  padding: 4px 10px;
+  flex-shrink: 0;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--ink2);
 }
 
 /* Reviews row */
@@ -1279,6 +1329,199 @@
   background-size: contain;
   background-repeat: no-repeat;
   pointer-events: none;
+}
+/* ═══════════════════════════════════════════════════════════════
+   SERVICE MODAL — two-panel layout matching the client "Post a Task"
+   modal exactly (dark identity panel + white form panel). Uses its
+   own db-svc-modal-* namespace so it doesn't collide with this file's
+   existing single-column .db-modal used by ConfirmModal.
+   ═══════════════════════════════════════════════════════════════ */
+
+.db-svc-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(17,17,16,.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 600;
+  padding: 16px;
+  animation: dbSvcFadeIn .2s ease both;
+}
+@keyframes dbSvcFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.db-svc-modal {
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr);
+  align-items: stretch;
+  width: 100%;
+  max-width: 760px;
+  max-height: calc(100vh - 32px);
+  border-radius: var(--r);
+  overflow: hidden;
+  box-shadow: 0 32px 80px rgba(0,0,0,.14);
+  border: 1px solid rgba(255,255,255,.12);
+  animation: dbSvcModalIn .3s cubic-bezier(.34,1.2,.64,1) both;
+}
+@keyframes dbSvcModalIn {
+  from { opacity: 0; transform: scale(.96) translateY(12px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Left dark panel */
+.db-svc-modal-left {
+  min-width: 0;
+  background: var(--ink);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 36px 22px 28px;
+  position: relative;
+  overflow-y: auto;
+}
+
+.db-svc-modal-close {
+  position: absolute;
+  top: 14px; right: 14px;
+  background: rgba(255,255,255,.08);
+  border: none;
+  border-radius: 8px;
+  width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  color: rgba(255,255,255,.55);
+  cursor: pointer;
+  transition: background .18s, color .18s;
+}
+.db-svc-modal-close:hover { background: rgba(255,255,255,.14); color: #fff; }
+
+.db-svc-modal-left-top {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.db-svc-modal-avatar {
+  width: 72px; height: 72px;
+  border-radius: 18px;
+  border: 2px solid rgba(255,255,255,.1);
+  overflow: hidden;
+  margin-bottom: 12px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.3);
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--card2);
+}
+.db-svc-modal-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.db-svc-modal-avatar span {
+  font-size: 22px; font-weight: 800; color: var(--ink);
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+}
+
+.db-svc-modal-id { display: flex; flex-direction: column; align-items: center; }
+.db-svc-modal-username { font-size: 14px; font-weight: 700; color: #FAF8F4; margin-bottom: 2px; text-align: center; }
+.db-svc-modal-userrole { font-size: 11px; color: rgba(255,255,255,.35); margin-bottom: 22px; }
+
+.db-svc-modal-tips {
+  list-style: none;
+  margin-top: auto;
+  padding-top: 20px;
+  width: 100%;
+  display: flex; flex-direction: column; gap: 9px;
+}
+.db-svc-modal-tips li {
+  display: flex; align-items: center; gap: 9px;
+  font-size: 11.5px; color: rgba(255,255,255,.35); line-height: 1.4;
+}
+.db-svc-modal-tips li span:first-child { font-size: 14px; flex-shrink: 0; }
+
+/* Right white form panel */
+.db-svc-modal-right {
+  min-width: 0;
+  min-height: 0;
+  background: var(--card);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.db-svc-modal-right-head {
+  padding: 22px 28px 16px;
+  border-bottom: 1.5px solid var(--border);
+  flex-shrink: 0;
+}
+.db-svc-modal-right-head h2 {
+  font-size: 18px; font-weight: 800; color: var(--ink);
+  letter-spacing: -.03em; margin-bottom: 3px;
+}
+.db-svc-modal-right-head p { font-size: 12.5px; color: var(--ink3); }
+
+.db-svc-modal-right-body {
+  flex: 1;
+  padding: 22px 28px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.db-svc-modal-actions {
+  display: flex; gap: 10px;
+  padding-top: 16px;
+  border-top: 1.5px solid var(--border);
+  margin-top: auto;
+}
+
+/* Scrollbars, matching the rest of the app's thin-scrollbar style */
+.db-svc-modal-left::-webkit-scrollbar,
+.db-svc-modal-right-body::-webkit-scrollbar { width: 4px; }
+.db-svc-modal-left::-webkit-scrollbar-track,
+.db-svc-modal-right-body::-webkit-scrollbar-track { background: transparent; }
+.db-svc-modal-left::-webkit-scrollbar-thumb,
+.db-svc-modal-right-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,.15); border-radius: 4px; }
+.db-svc-modal-right-body::-webkit-scrollbar-thumb { background: var(--border); }
+
+/* ── Responsive — collapse to a single column on small screens,
+   same pattern as PostTaskModal's mobile breakpoint ── */
+@media (max-width: 680px) {
+  .db-svc-modal {
+    grid-template-columns: 1fr;
+    max-height: 95vh;
+  }
+  .db-svc-modal-left {
+    flex-direction: row;
+    flex-wrap: wrap;
+    padding: 18px 24px;
+    gap: 14px 22px;
+    align-items: center;
+  }
+  .db-svc-modal-left-top {
+    flex-direction: row;
+    align-items: center;
+    width: auto;
+    gap: 12px;
+  }
+  .db-svc-modal-id { align-items: flex-start; }
+  .db-svc-modal-avatar {
+    width: 48px; height: 48px;
+    margin-bottom: 0;
+    border-radius: 12px;
+  }
+  .db-svc-modal-username,
+  .db-svc-modal-userrole { text-align: left; }
+  .db-svc-modal-userrole { margin-bottom: 0; }
+  .db-svc-modal-tips {
+    margin-top: 0;
+    padding-top: 0;
+    margin-left: auto;
+    width: auto;
+    max-width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px 18px;
+  }
 }
 
 .db-status-option {

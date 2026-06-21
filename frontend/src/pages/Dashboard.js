@@ -456,17 +456,17 @@ function TaskCard({ task, onCancelled }) {
   // that booking too (handled server-side in DELETE /tasks/:id).
   const canCancel = displayStatus !== "completed" && displayStatus !== "cancelled";
 
-  const handleCommentSubmit = async () => {
+const handleCommentSubmit = async () => {
     if (!comment.trim()) return;
     setSubmitting(true); setCommentError("");
     try {
-      const res = await fetch(`${API_URL}/tasks/${task.id}/comments`, {
+      const res = await fetch(`${API_URL}/reviews`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session?.token}`,
         },
-        body: JSON.stringify({ comment: comment.trim(), rating: rating || null }),
+        body: JSON.stringify({ booking_id: task.booking_id, comment: comment.trim(), rating: rating || null }),
       });
       if (!res.ok) throw new Error("Failed to submit");
       setSubmitted(true);

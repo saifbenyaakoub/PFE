@@ -22,7 +22,13 @@ async function onSubmit(e) {
 
     window.dispatchEvent(new Event('session:updated'));
 
-    navigate("/Dashboard", { replace: true });
+    // Route must match the registered path exactly — React Router paths
+    // are case-sensitive by default, and the app's actual route is
+    // lowercase "/dashboard" (confirmed by every other navigate("/dashboard...")
+    // call elsewhere in the app, e.g. TasksPage.jsx, ProviderDashboard.jsx).
+    // The previous "/Dashboard" (capital D) didn't match, so this redirect
+    // was silently failing to land on the dashboard.
+    navigate("/dashboard", { replace: true });
     console.log("Login successful:", session)
   } catch (err) {
     const backendError = err.response?.data?.error || err.response?.data?.message || err.message;

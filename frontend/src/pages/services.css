@@ -24,6 +24,9 @@
   --danger-bg:#FEF2F2;
   --info:     #2563EB;
   --info-bg:  #EFF6FF;
+  --terra:    #D85A30;
+  --terra-bg: #FDF1EC;
+  --terra-bd: #F3CCBB;
   --r:        22px;
   --r-sm:     14px;
   --shadow-card: 0 1px 3px rgba(0,0,0,.05);
@@ -348,6 +351,13 @@
   object-fit: cover;
 }
 
+/* Provider profile photo variant — same footprint as the initials avatar */
+.task-avatar-img {
+  background: var(--card2);
+  border: 1.5px solid var(--border);
+  object-fit: cover;
+}
+
 .task-title {
   font-size: 15px;
   font-weight: 700;
@@ -381,24 +391,54 @@
   overflow: hidden;
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   TAG CHIPS (category / location)
+   ═══════════════════════════════════════════════════════════════ */
 .task-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 2px;
+  gap: 8px;
+  margin-top: 4px;
 }
 
 .task-tag {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  font-size: 11px;
-  padding: 4px 11px;
+  gap: 6px;
+  font-size: 11.5px;
+  padding: 5px 12px 5px 10px;
   border-radius: 100px;
-  font-weight: 500;
-  border: 1.5px solid var(--border);
+  font-weight: 600;
+  border: 1.5px solid transparent;
+  letter-spacing: -.01em;
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+
+.task-tag svg {
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+/* Category chip — terracotta accent, icon in a small filled dot */
+.task-tag--category {
+  background: var(--terra-bg);
+  border-color: var(--terra-bd);
+  color: #B6491F;
+}
+
+.task-tag--category svg { color: var(--terra); }
+
+/* Location chip — neutral ink/grey, calmer than category */
+.task-tag--location {
   background: var(--card2);
-  color: var(--ink3);
+  border-color: var(--border);
+  color: var(--ink2);
+}
+
+.task-tag--location svg { color: var(--ink3); }
+
+.task-card:hover .task-tag {
+  box-shadow: var(--shadow-card);
 }
 
 /* ── Card aside (action panel) ── */
@@ -520,53 +560,6 @@
 .rating-widget--modal .rating-stars { gap: 5px; }
 .rating-widget--modal .rstar        { font-size: 14px; }
 .rating-widget--modal .rating-score { font-size: 22px; }
-/* Review count line under the score */
-.task-rating-reviews {
-  font-size: 10px;
-  color: var(--ink3);
-  font-weight: 500;
-  line-height: 1;
-}
-
-/* NEW provider state — green tinted box */
-.task-rating--new {
-  background: var(--green-bg);
-  border-color: var(--green-bd);
-  gap: 4px;
-  position: relative;
-}
-
-/* Pulsing green dot */
-.new-badge-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--green);
-  flex-shrink: 0;
-  animation: pulse-dot 2s ease-in-out infinite;
-}
-
-@keyframes pulse-dot {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50%       { opacity: .5; transform: scale(1.4); }
-}
-
-/* "New" label */
-.new-badge-label {
-  font-size: 13px;
-  font-weight: 800;
-  color: var(--green);
-  line-height: 1;
-}
-
-/* "Be the first!" sub-line */
-.new-badge-sub {
-  font-size: 9px;
-  color: var(--green);
-  opacity: .7;
-  font-weight: 500;
-  line-height: 1;
-}
 
 .star { color: var(--warn); font-size: 13px; }
 
@@ -861,6 +854,7 @@
 
 .modal-meta {
   display: flex;
+  align-items: center;
   gap: 20px;
   font-size: 13px;
   color: var(--ink2);
@@ -868,24 +862,35 @@
   padding-bottom: 20px;
   border-bottom: 1.5px solid var(--border);
 }
+
 .modal-meta-poster {
   display: flex;
   align-items: center;
   gap: 8px;
+  font-weight: 600;
+  color: var(--ink);
 }
+
 .modal-poster-avatar {
   width: 28px;
   height: 28px;
   border-radius: 50%;
   object-fit: cover;
-  font-size: 12px;
+  font-size: 11px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #D85A30;
+  background: var(--terra);
   color: #fff;
-  font-weight: 600;
+  font-weight: 700;
+  flex-shrink: 0;
 }
+
+.modal-poster-avatar-img {
+  background: var(--card2);
+  border: 1.5px solid var(--border);
+}
+
 .modal-meta-item {
   display: flex;
   align-items: center;

@@ -19,6 +19,7 @@ const resolveImage = (img) => {
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 const Icon = {
+  warn:      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>,
   grid:      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>,
   briefcase: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>,
   calendar:  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
@@ -72,26 +73,22 @@ function ConfirmModal({ title, message, confirmLabel = "Confirm", danger = true,
   return (
     <div className="db-modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="db-modal" style={{ maxWidth: 420 }}>
-        <div className="db-modal-header">
-          <h3 className="db-modal-title">{title}</h3>
+        <div className="db-modal-header" style={{ alignItems: "flex-start" }}>
+          <div className="db-confirm-modal-icon">{Icon.warn}</div>
           <button className="db-icon-btn" onClick={onClose}>{Icon.x}</button>
         </div>
-        <p style={{ fontSize: 13.5, color: "var(--ink-mid)", lineHeight: 1.5, padding: "4px 0 18px" }}>
+        <h3 className="db-modal-title" style={{ margin: "0 0 4px" }}>{title}</h3>
+        <p className="db-confirm-modal-message">
           {message}
         </p>
-        <div className="db-modal-actions">
-          <button className="db-cta db-cta--outline" onClick={onClose} style={{ flex: 1, justifyContent: "center" }}>
+        <div className="db-confirm-modal-actions">
+          <button className="db-cta db-cta--outline" onClick={onClose}>
             Keep it
           </button>
           <button
-            className="db-cta"
+            className={`db-cta${danger ? " db-cta--danger" : ""}`}
             onClick={handleConfirm}
             disabled={submitting}
-            style={{
-              flex: 1, justifyContent: "center",
-              background: danger ? "var(--danger)" : undefined,
-              opacity: submitting ? 0.6 : 1,
-            }}
           >
             {submitting ? "Cancelling…" : confirmLabel}
           </button>
@@ -101,53 +98,133 @@ function ConfirmModal({ title, message, confirmLabel = "Confirm", danger = true,
   );
 }
 
-// ── Service Modal ─────────────────────────────────────────────────────────────
+// ── Service Modal — two-panel layout matching the client's "Post a Task"
+//    modal (dark identity panel on the left, form on the right) ─────────────
 const CATEGORIES = ["Plumbing","Electrical","Carpentry","Painting","Cleaning","Gardening","Moving","IT Support","Tutoring","Music Lessons"];
 
-function ServiceModal({ service, onClose, onSave }) {
+const SERVICE_TIPS = [
+  { icon: "📋", text: "Clear titles get more bookings" },
+  { icon: "🏷️", text: "Pick the closest matching category" },
+  { icon: "✍️", text: "A good description builds trust" },
+];
+
+function ServiceModal({ service, onClose, onSave, providerName, providerImageUrl }) {
   const [form, setForm] = useState({
     title:       service?.title       || "",
     category:    service?.category    || "",
     description: service?.description || "",
   });
   const [saving, setSaving] = useState(false);
+
+  const initials = (providerName || "Provider").trim().split(/\s+/).map(n => n[0]).join("").toUpperCase().slice(0, 2);
+  const isEdit = Boolean(service);
+  const valid = form.title.trim().length > 2 && Boolean(form.category);
+
   const handleSave = async () => {
-    if (!form.title || !form.category) return;
+    if (!valid) return;
     setSaving(true);
     await onSave(form);
     setSaving(false);
   };
 
   return (
-    <div className="db-modal-overlay">
-      <div className="db-modal">
-        <div className="db-modal-header">
-          <h3 className="db-modal-title">{service ? "Edit Service" : "Add New Service"}</h3>
-          <button className="db-icon-btn" onClick={onClose}>{Icon.x}</button>
+    <div className="db-svc-modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="db-svc-modal">
+
+        {/* ── Left panel — dark context, mirrors PostTaskModal ── */}
+        <div className="db-svc-modal-left">
+          <button className="db-svc-modal-close" onClick={onClose}>{Icon.x}</button>
+
+          <div className="db-svc-modal-left-top">
+            <div className="db-svc-modal-avatar">
+              {providerImageUrl
+                ? <img src={providerImageUrl} alt={providerName} />
+                : <span>{initials}</span>
+              }
+            </div>
+            <div className="db-svc-modal-id">
+              <p className="db-svc-modal-username">{providerName || "Provider"}</p>
+              <p className="db-svc-modal-userrole">Provider · FixHub</p>
+            </div>
+          </div>
+
+          <ul className="db-svc-modal-tips">
+            {SERVICE_TIPS.map((tip, i) => (
+              <li key={i}>
+                <span>{tip.icon}</span>
+                <span>{tip.text}</span>
+              </li>
+            ))}
+          </ul>
         </div>
 
-        <div className="db-form-group">
-          <label className="db-form-label">Service Name *</label>
-          <input className="db-form-input" type="text" value={form.title} placeholder="e.g. Plumbing Repair" onChange={e => setForm({ ...form, title: e.target.value })} />
-        </div>
-        <div className="db-form-group">
-          <label className="db-form-label">Category *</label>
-          <select className="db-form-select" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}>
-            <option value="">Select a category</option>
-            {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-        </div>
-        <div className="db-form-group">
-          <label className="db-form-label">Description</label>
-          <textarea className="db-form-textarea" value={form.description} placeholder="Describe the service…" onChange={e => setForm({ ...form, description: e.target.value })} rows={3} />
+        {/* ── Right panel — form ── */}
+        <div className="db-svc-modal-right">
+          <div className="db-svc-modal-right-head">
+            <div>
+              <h2>{isEdit ? "Edit Service" : "Add New Service"}</h2>
+              <p>{isEdit ? "Update the details clients see" : "Tell clients what you offer"}</p>
+            </div>
+          </div>
+
+          <div className="db-svc-modal-right-body">
+            <div className="db-form-group">
+              <label className="db-form-label">Service Name *</label>
+              <input
+                className="db-form-input"
+                type="text"
+                value={form.title}
+                placeholder="e.g. Plumbing Repair"
+                onChange={e => setForm({ ...form, title: e.target.value })}
+                maxLength={255}
+              />
+            </div>
+
+            <div className="db-form-group">
+              <label className="db-form-label">Category *</label>
+              <select
+                className="db-form-select"
+                value={form.category}
+                onChange={e => setForm({ ...form, category: e.target.value })}
+              >
+                <option value="">Select a category</option>
+                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+
+            <div className="db-form-group">
+              <label className="db-form-label">Description</label>
+              <textarea
+                className="db-form-textarea"
+                value={form.description}
+                placeholder="Describe the service…"
+                onChange={e => setForm({ ...form, description: e.target.value })}
+                rows={4}
+              />
+              <div className="db-form-hint">
+                <span>{form.description.length} chars</span>
+              </div>
+            </div>
+
+            <div className="db-svc-modal-actions">
+              <button className="db-cta db-cta--outline" onClick={onClose} style={{ flex: 1, justifyContent: "center" }}>
+                Cancel
+              </button>
+              <button
+                className="db-cta"
+                onClick={handleSave}
+                disabled={!valid || saving}
+                style={{ flex: 1, justifyContent: "center", opacity: (!valid || saving) ? 0.5 : 1 }}
+              >
+                {saving
+                  ? <><div className="db-spinner" style={{ width: 13, height: 13, borderWidth: 2, borderTopColor: "#fff" }} /> Saving…</>
+                  : <>{Icon.save} {isEdit ? "Save Changes" : "Create Service"}</>
+                }
+              </button>
+            </div>
+          </div>
         </div>
 
-        <div className="db-modal-actions">
-          <button className="db-cta db-cta--outline" onClick={onClose} style={{ flex: 1, justifyContent: "center" }}>Cancel</button>
-          <button className="db-cta" onClick={handleSave} disabled={saving} style={{ flex: 1, justifyContent: "center", opacity: saving ? 0.6 : 1 }}>
-            {saving ? "Saving…" : <>{Icon.save} Save</>}
-          </button>
-        </div>
       </div>
     </div>
   );
@@ -937,6 +1014,8 @@ export default function ProviderDashboard() {
           service={serviceModal === "add" ? null : serviceModal}
           onClose={() => setServiceModal(null)}
           onSave={handleSaveService}
+          providerName={name}
+          providerImageUrl={profileImageUrl}
         />
       )}
 

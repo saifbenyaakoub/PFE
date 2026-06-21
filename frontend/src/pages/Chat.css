@@ -528,43 +528,7 @@
 }
 .btn-update-quotation:hover { background: var(--card2); border-color: var(--ink); }
 
-/* ── QUOTATION MODAL ───────────────────────────────────────────── */
-/* Overlay — inherits .db-modal-overlay from dashboard.css */
-
-/* Modal box overrides for chat-specific quotation form */
-.db-modal {
-  /* already defined in dashboard.css — we add chat-specific refinements */
-  flex-direction: column;
-  max-width: 480px;
-  background: var(--card);
-  border-radius: var(--r);
-}
-
-.modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 22px 24px 16px;
-  border-bottom: 1.5px solid var(--border);
-  flex-shrink: 0;
-}
-
-.db-modal-title {
-  font-size: 17px;
-  font-weight: 800;
-  letter-spacing: -.03em;
-  color: var(--ink);
-  margin: 0;
-}
-
-/* Modal inner form scroll area */
-.db-modal form {
-  padding: 20px 24px;
-  overflow-y: auto;
-  flex: 1;
-}
-
-/* Line-item grid row */
+/* ── Line-item grid row (used inside the new quotation modal form) ── */
 .quotation-item-row {
   display: grid;
   grid-template-columns: 1fr 60px 88px 28px;
@@ -612,26 +576,27 @@
 .btn-remove-item:disabled { color: var(--ink4); cursor: not-allowed; }
 
 /* Total row inside modal */
-.modal-total-row {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 18px;
-  padding: 10px 14px;
+.modal-totals-block {
+  margin-top: 14px;
+  padding: 12px 14px;
   background: var(--card2);
   border-radius: var(--r-sm);
   border: 1.5px solid var(--border);
 }
-.modal-total-label {
+.modal-totals-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   font-size: 13px;
-  font-weight: 600;
-  color: var(--ink3);
+  color: var(--ink2);
+  padding: 4px 0;
 }
-.modal-total-value {
-  font-size: 18px;
-  font-weight: 900;
-  letter-spacing: -.04em;
+.modal-totals-ttc {
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1.5px solid var(--border);
+  font-size: 15px;
+  font-weight: 800;
   color: var(--ink);
 }
 
@@ -642,7 +607,6 @@
   .mobile-hidden { display: none !important; }
   .chat-container { border-radius: var(--r-sm, 14px); }
   .quotation-card { max-width: 290px; min-width: 240px; }
-  .db-modal { max-width: 100%; border-radius: var(--r-sm, 14px); }
 }
 
 @media (max-width: 480px) {
@@ -650,4 +614,211 @@
   .chat-input-area { padding: 10px 12px; }
   .sidebar-header { padding: 16px; }
   .chat-header { padding: 12px 14px; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   QUOTATION MODAL — two-panel layout matching Post a Task / Service
+   modal. Own db-quote-modal-* namespace, no collision with .db-modal
+   used elsewhere in the app for non-quotation dialogs.
+
+   Key fix: the form body scrolls independently inside
+   .db-quote-modal-form-body, while .db-quote-modal-actions (the
+   submit button) sits in a sticky footer OUTSIDE that scroll area.
+   Previously the submit button lived inside the same scrolling
+   container as the line items, so adding more lines pushed it
+   further down and out of view. Now it's always visible regardless
+   of how many lines are added.
+   ═══════════════════════════════════════════════════════════════ */
+
+.db-quote-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(17,17,16,.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 600;
+  padding: 16px;
+  animation: dbQuoteFadeIn .2s ease both;
+}
+@keyframes dbQuoteFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.db-quote-modal {
+  display: grid;
+  grid-template-columns: 230px minmax(0, 1fr);
+  align-items: stretch;
+  width: 100%;
+  max-width: 760px;
+  height: calc(100vh - 32px);
+  max-height: 760px;
+  border-radius: var(--r);
+  overflow: hidden;
+  box-shadow: 0 32px 80px rgba(0,0,0,.14);
+  border: 1px solid rgba(255,255,255,.12);
+  animation: dbQuoteModalIn .3s cubic-bezier(.34,1.2,.64,1) both;
+}
+@keyframes dbQuoteModalIn {
+  from { opacity: 0; transform: scale(.96) translateY(12px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Left dark panel */
+.db-quote-modal-left {
+  min-width: 0;
+  background: var(--ink);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 32px 20px 24px;
+  position: relative;
+  overflow-y: auto;
+}
+
+.db-quote-modal-close {
+  position: absolute;
+  top: 14px; right: 14px;
+  background: rgba(255,255,255,.08);
+  border: none;
+  border-radius: 8px;
+  width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  color: rgba(255,255,255,.55);
+  cursor: pointer;
+  transition: background .18s, color .18s;
+}
+.db-quote-modal-close:hover { background: rgba(255,255,255,.14); color: #fff; }
+
+.db-quote-modal-left-top {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.db-quote-modal-avatar {
+  width: 64px; height: 64px;
+  border-radius: 16px;
+  border: 2px solid rgba(255,255,255,.1);
+  overflow: hidden;
+  margin-bottom: 12px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.3);
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--card2);
+}
+.db-quote-modal-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.db-quote-modal-avatar span {
+  font-size: 20px; font-weight: 800; color: var(--ink);
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+}
+
+.db-quote-modal-id { display: flex; flex-direction: column; align-items: center; }
+.db-quote-modal-username { font-size: 13.5px; font-weight: 700; color: #FAF8F4; margin-bottom: 2px; text-align: center; }
+.db-quote-modal-userrole { font-size: 10.5px; color: rgba(255,255,255,.35); margin-bottom: 20px; }
+
+.db-quote-modal-tips {
+  list-style: none;
+  margin-top: auto;
+  padding-top: 18px;
+  width: 100%;
+  display: flex; flex-direction: column; gap: 9px;
+}
+.db-quote-modal-tips li {
+  display: flex; align-items: flex-start; gap: 8px;
+  font-size: 11px; color: rgba(255,255,255,.35); line-height: 1.4;
+}
+.db-quote-modal-tips li span:first-child { font-size: 13px; flex-shrink: 0; }
+
+/* Right white panel — header, scrollable form body, sticky footer */
+.db-quote-modal-right {
+  min-width: 0;
+  min-height: 0;
+  background: var(--card);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.db-quote-modal-right-head {
+  padding: 20px 26px 14px;
+  border-bottom: 1.5px solid var(--border);
+  flex-shrink: 0;
+}
+.db-quote-modal-right-head h2 {
+  font-size: 17px; font-weight: 800; color: var(--ink);
+  letter-spacing: -.03em; margin-bottom: 3px;
+}
+.db-quote-modal-right-head p { font-size: 12px; color: var(--ink3); }
+
+/* The <form> itself becomes the flex column that splits scroll body
+   from the sticky footer, so the footer is a real sibling outside
+   the scrolling element rather than just visually clipped. */
+.db-quote-modal-form {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.db-quote-modal-form-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 18px 26px;
+}
+
+.db-quote-modal-actions {
+  flex-shrink: 0;
+  padding: 14px 26px;
+  border-top: 1.5px solid var(--border);
+  background: var(--card);
+}
+
+/* Scrollbars, matching the rest of the app's thin-scrollbar style */
+.db-quote-modal-left::-webkit-scrollbar,
+.db-quote-modal-form-body::-webkit-scrollbar { width: 4px; }
+.db-quote-modal-left::-webkit-scrollbar-track,
+.db-quote-modal-form-body::-webkit-scrollbar-track { background: transparent; }
+.db-quote-modal-left::-webkit-scrollbar-thumb { background: rgba(255,255,255,.15); border-radius: 4px; }
+.db-quote-modal-form-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+/* ── Responsive — collapse to single column, dark panel becomes a
+   compact horizontal header, same pattern as the other two-panel
+   modals in this app ── */
+@media (max-width: 680px) {
+  .db-quote-modal {
+    grid-template-columns: 1fr;
+    height: 95vh;
+    max-height: none;
+  }
+  .db-quote-modal-left {
+    flex-direction: row;
+    flex-wrap: wrap;
+    padding: 16px 20px;
+    gap: 12px 18px;
+    align-items: center;
+    overflow: visible;
+  }
+  .db-quote-modal-left-top {
+    flex-direction: row;
+    align-items: center;
+    width: auto;
+    gap: 10px;
+  }
+  .db-quote-modal-id { align-items: flex-start; }
+  .db-quote-modal-avatar {
+    width: 42px; height: 42px;
+    margin-bottom: 0;
+    border-radius: 10px;
+  }
+  .db-quote-modal-username,
+  .db-quote-modal-userrole { text-align: left; }
+  .db-quote-modal-userrole { margin-bottom: 0; }
+  .db-quote-modal-tips { display: none; }
+  .db-quote-modal-form-body { padding: 14px 18px; }
+  .db-quote-modal-actions { padding: 12px 18px; }
 }

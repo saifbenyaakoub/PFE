@@ -38,6 +38,8 @@ export default function Chat() {
   const [editingMessageId, setEditingMessageId] = useState(null);
   const [providerServices, setProviderServices] = useState([]);
   const [selectedServiceId, setSelectedServiceId] = useState("");
+  const [clientTasks, setClientTasks] = useState([]);
+  const [selectedTaskId, setSelectedTaskId] = useState("");
   const [quotationError, setQuotationError] = useState("");
 
   const messagesEndRef = useRef(null);
@@ -77,9 +79,11 @@ export default function Chat() {
     });
     setEditingMessageId(null);
     setSelectedServiceId("");
+    setSelectedTaskId("");
     setQuotationError("");
     setShowQuotationModal(true);
     fetchProviderServices();
+    fetchClientTasks();
   };
 
   const openModalForEdit = (data, msgId) => {
@@ -94,9 +98,11 @@ export default function Chat() {
     });
     setEditingMessageId(msgId);
     setSelectedServiceId("");
+    setSelectedTaskId(data.taskId ?? "");
     setQuotationError("");
     setShowQuotationModal(true);
     fetchProviderServices();
+    fetchClientTasks();
   };
 
   const updateItem = (idx, field, value) => {
@@ -125,6 +131,24 @@ export default function Chat() {
       console.error("Failed to fetch provider services:", err);
     }
   }, [session]);
+
+  // Fetches the current chat partner's (the client's) currently-open tasks,
+  // so the provider can optionally link a quotation to one of them. This is
+  // the replacement for the old "Book Now tags the conversation" approach —
+  // task linkage is now picked explicitly per-quotation instead, since a
+  // conversation isn't reliably tied to a single task.
+  const fetchClientTasks = useCallback(async () => {
+    if (!session?.user || session.user.role !== "provider" || !currentChat?.other_user_id) return;
+    try {
+      const res = await fetch(
+        `${ENDPOINT}/chat/client-tasks?clientId=${currentChat.other_user_id}`,
+        { headers: { Authorization: `Bearer ${session.token}` } }
+      );
+      if (res.ok) setClientTasks(await res.json());
+    } catch (err) {
+      console.error("Failed to fetch client tasks:", err);
+    }
+  }, [session, currentChat]);
 
   // When the provider picks a service from the dropdown, pre-fill the first
   // quotation line with that service's title and price.
@@ -298,6 +322,7 @@ export default function Chat() {
     const content = JSON.stringify({
       type: "quotation",
       serviceId: selectedServiceId || null,
+      taskId: selectedTaskId || null,
       items: quotation.items,
       duration: quotation.duration,
       startDate: quotation.startDate,
@@ -616,15 +641,49 @@ export default function Chat() {
 
       {/* Quotation modal logic remains the same */}
       {showQuotationModal && (
-        <div className="db-modal-overlay">
-          <div className="db-modal">
-            <div className="modal-header">
-              <h3 className="db-modal-title">{editingMessageId ? "Update Quotation" : "Create Quotation"}</h3>
-              <button className="db-icon-btn" onClick={() => { setShowQuotationModal(false); setEditingMessageId(null); }}>
+        <div className="db-quote-modal-overlay" onClick={e => { if (e.target === e.currentTarget) { setShowQuotationModal(false); setEditingMessageId(null); } }}>
+          <div className="db-quote-modal">
+
+            {/* ── Left panel — dark context, mirrors Post a Task / Service modal ── */}
+            <div className="db-quote-modal-left">
+              <button
+                className="db-quote-modal-close"
+                onClick={() => { setShowQuotationModal(false); setEditingMessageId(null); }}
+              >
                 <FaTimes />
               </button>
+
+              <div className="db-quote-modal-left-top">
+                <div className="db-quote-modal-avatar">
+                  {session?.user?.profileImage
+                    ? <img src={resolveImage(session.user.profileImage)} alt={session.user.name} />
+                    : <span>{(session?.user?.name || "Provider").trim().split(/\s+/).map(n => n[0]).join("").toUpperCase().slice(0, 2)}</span>
+                  }
+                </div>
+                <div className="db-quote-modal-id">
+                  <p className="db-quote-modal-username">{session?.user?.name || "Provider"}</p>
+                  <p className="db-quote-modal-userrole">Provider · FixHub</p>
+                </div>
+              </div>
+
+              <ul className="db-quote-modal-tips">
+                <li><span>📐</span><span>Itemize each piece of work clearly</span></li>
+                <li><span>🧾</span><span>Add TVA per line for accurate totals</span></li>
+                <li><span>🔗</span><span>A linked service unlocks the booking on accept</span></li>
+              </ul>
             </div>
-            <form onSubmit={handleSendQuotation}>
+
+            {/* ── Right panel — form ── */}
+            <div className="db-quote-modal-right">
+              <div className="db-quote-modal-right-head">
+                <div>
+                  <h2>{editingMessageId ? "Update Quotation" : "Create Quotation"}</h2>
+                  <p>Fill in the details — the client will review and accept</p>
+                </div>
+              </div>
+
+              <form onSubmit={handleSendQuotation} className="db-quote-modal-form">
+                <div className="db-quote-modal-form-body">
 
               {/* ── Service selector (providers only) — required, since a
                    quotation must be linked to a service for a booking to
@@ -660,6 +719,40 @@ export default function Chat() {
                     {quotationError}
                   </p>
                 )}
+              </div>
+
+              {/* ── Task selector (optional) — lets the provider link this
+                   quotation to one of the client's currently-open posted
+                   tasks. Not required, since a quotation may be for general
+                   work not tied to any specific posted task. When linked,
+                   the task's status automatically follows the resulting
+                   booking's status (e.g. marking the booking completed
+                   marks the task completed too). ── */}
+              <div className="db-form-group" style={{ marginBottom: '16px' }}>
+                <label className="db-form-label">
+                  Link to a posted task <span style={{ color: 'var(--color-text-muted, #888)', fontWeight: 400 }}>(optional)</span>
+                </label>
+                {clientTasks.length > 0 ? (
+                  <select
+                    className="db-form-input"
+                    value={selectedTaskId}
+                    onChange={(e) => setSelectedTaskId(e.target.value)}
+                  >
+                    <option value="">— Not linked to a posted task —</option>
+                    {clientTasks.map(t => (
+                      <option key={t.id} value={t.id}>
+                        {t.title}{t.category ? ` (${t.category})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <p style={{ fontSize: '12px', color: 'var(--color-text-muted, #888)', margin: 0 }}>
+                    This client has no open posted tasks right now.
+                  </p>
+                )}
+                <small style={{ color: 'var(--color-text-muted, #888)', fontSize: '11px', marginTop: '4px', display: 'block' }}>
+                  If linked, the task's status will automatically follow this booking's status once accepted.
+                </small>
               </div>
 
               {/* Provider fiscal info */}
@@ -813,18 +906,26 @@ export default function Chat() {
                 </div>
               </div>
 
-              <div className="db-modal-actions">
-                <button
-                  type="submit"
-                  className="db-cta"
-                  style={{ width: '100%', justifyContent: 'center', opacity: !selectedServiceId ? 0.5 : 1 }}
-                  disabled={!selectedServiceId}
-                  title={!selectedServiceId ? "Select a service first" : undefined}
-                >
-                  Envoyer au client
-                </button>
-              </div>
-            </form>
+                </div>
+
+                {/* Sticky footer — outside the scrollable form body, so the
+                    submit button always stays visible and reachable no
+                    matter how many line items are added (previously it
+                    lived inside the scrolling area and got pushed out of
+                    view / below the fold as the form grew). */}
+                <div className="db-quote-modal-actions">
+                  <button
+                    type="submit"
+                    className="db-cta"
+                    style={{ width: '100%', justifyContent: 'center', opacity: !selectedServiceId ? 0.5 : 1 }}
+                    disabled={!selectedServiceId}
+                    title={!selectedServiceId ? "Select a service first" : undefined}
+                  >
+                    Envoyer au client
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}
