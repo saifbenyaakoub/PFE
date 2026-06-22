@@ -4,6 +4,7 @@ import { getSession } from "../lib/session";
 import ProviderDashboard from "./ProviderDashboard";
 import AdminDashboard from "./AdminDashboard";
 import Chat from "./Chat";
+import { FaFilePdf, FaTimes as FaRemove } from "react-icons/fa";
 import "./dashboard.css";
 
 // ── Smart router ──────────────────────────────────────────────────────────────
@@ -34,6 +35,7 @@ const Icon = {
   photo:    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>,
   warn:     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>,
   trash:    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>,
+  upload:   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>,
 };
 
 // ── Status meta — covers both task statuses and booking statuses ──────────────
@@ -324,10 +326,15 @@ function PostTaskModal({ onClose, session }) {
 function RecommendationBot() {
   const session = getSession();
   const [messages, setMessages] = useState([
-    { role: "assistant", content: "👋 Hi! I'm your **FixHub Assistant**. I can recommend service providers or explain your quotations. How can I help?" }
+    { role: "assistant", content: "👋 Hi! I'm your **FixHub Assistant**. I can recommend service providers, explain your quotations, or analyze a quotation PDF — just drag one in. How can I help?" }
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [attachedFile, setAttachedFile] = useState(null); // File object, pre-send
+  const [fileError, setFileError] = useState("");
+  const [isDragging, setIsDragging] = useState(false);
+  const dragCounterRef = React.useRef(0); // tracks nested dragenter/dragleave pairs
+  const fileInputRef = React.useRef(null);
   const bottomRef = React.useRef(null);
   const hasScrolledRef = React.useRef(false);
 
@@ -339,19 +346,97 @@ function RecommendationBot() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [messages, loading]);
 
+  const validateAndAttach = (file) => {
+    if (!file) return;
+    if (file.type !== "application/pdf") {
+      setFileError("Only PDF files are supported.");
+      return;
+    }
+    if (file.size > 30 * 1024 * 1024) {
+      setFileError("File is too large (max 8MB).");
+      return;
+    }
+    setFileError("");
+    setAttachedFile(file);
+  };
+
+  // ── Drag & drop handlers ──
+  // dragCounterRef compensates for dragenter/dragleave firing on every
+  // child element as the cursor moves over nested nodes inside the drop
+  // zone — without it, isDragging would flicker off whenever the pointer
+  // crossed from the outer div into the input row, etc.
+  const handleDragEnter = (e) => {
+    e.preventDefault();
+    if (!e.dataTransfer.types.includes("Files")) return;
+    dragCounterRef.current += 1;
+    setIsDragging(true);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault(); // required so onDrop actually fires
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    dragCounterRef.current -= 1;
+    if (dragCounterRef.current <= 0) {
+      dragCounterRef.current = 0;
+      setIsDragging(false);
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    dragCounterRef.current = 0;
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    validateAndAttach(file);
+  };
+
+  const handleFilePick = (e) => {
+    const file = e.target.files?.[0];
+    validateAndAttach(file);
+    e.target.value = ""; // allow re-picking the same filename later
+  };
+
   const sendMessage = async (text) => {
     const userText = (text || input).trim();
-    if (!userText || loading) return;
-    setMessages(prev => [...prev, { role: "user", content: userText }]);
+    const file = attachedFile;
+    if (!userText && !file) return;
+    if (loading) return;
+
+    setMessages(prev => [...prev, {
+      role: "user",
+      content: userText || "Please analyze the attached quotation.",
+      fileName: file?.name || null,
+    }]);
     setInput("");
+    setAttachedFile(null);
+    setFileError("");
     setLoading(true);
+
     try {
-      const res = await fetch(`${ENDPOINT}/ai/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userText, userId: session?.user?.id }),
-      });
+      let res;
+      if (file) {
+        // Multipart path — multer on the backend reads "file" into req.file
+        // and the other fields land on req.body exactly like the JSON path did.
+        const fd = new FormData();
+        fd.append("message", userText);
+        fd.append("userId", session?.user?.id ?? "");
+        fd.append("file", file);
+        res = await fetch(`${ENDPOINT}/ai/chat`, { method: "POST", body: fd });
+      } else {
+        res = await fetch(`${ENDPOINT}/ai/chat`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: userText, userId: session?.user?.id }),
+        });
+      }
       const data = await res.json();
+      if (!res.ok) {
+        setMessages(prev => [...prev, { role: "assistant", content: `⚠️ ${data.error || "Something went wrong with that request."}` }]);
+        return;
+      }
       setMessages(prev => [...prev, { role: "assistant", content: data.reply || "Sorry, I couldn't get a response." }]);
     } catch {
       setMessages(prev => [...prev, { role: "assistant", content: "⚠️ Connection error. Please try again." }]);
@@ -363,7 +448,14 @@ function RecommendationBot() {
   );
 
   return (
-    <div className="db-card db-bot">
+    <div
+      className={`db-card db-bot${isDragging ? " db-bot--dragging" : ""}`}
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      style={{ position: "relative" }}
+    >
       <div className="db-bot-head">
         <div className="db-bot-avatar">{Icon.wrench}</div>
         <div className="db-bot-meta">
@@ -385,6 +477,12 @@ function RecommendationBot() {
               <div className="db-bot-bubble-icon">{Icon.wrench}</div>
             )}
             <div className={`db-bot-bubble db-bot-bubble--${m.role}`}>
+              {m.fileName && (
+                <div className="db-bot-file-chip db-bot-file-chip--sent">
+                  <FaFilePdf size={13} />
+                  <span>{m.fileName}</span>
+                </div>
+              )}
               {renderText(m.content)}
             </div>
           </div>
@@ -410,23 +508,66 @@ function RecommendationBot() {
         </div>
       )}
 
+      {/* ── Attached file preview (shown above the input row, pre-send) ── */}
+      {attachedFile && (
+        <div className="db-bot-file-chip db-bot-file-chip--pending">
+          <FaFilePdf size={14} />
+          <span className="db-bot-file-chip-name">{attachedFile.name}</span>
+          <span className="db-bot-file-chip-size">{(attachedFile.size / 1024).toFixed(0)} KB</span>
+          <button
+            type="button"
+            className="db-bot-file-chip-remove"
+            onClick={() => setAttachedFile(null)}
+            title="Remove attachment"
+          >
+            <FaRemove size={11} />
+          </button>
+        </div>
+      )}
+      {fileError && (
+        <p style={{ fontSize: 11.5, color: "var(--danger)", margin: "4px 2px 0" }}>{fileError}</p>
+      )}
+
       <div className="db-bot-input-row">
+        <button
+          type="button"
+          className="db-icon-btn"
+          onClick={() => fileInputRef.current?.click()}
+          title="Attach a quotation PDF"
+        >
+          <FaFilePdf size={14} />
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="application/pdf"
+          onChange={handleFilePick}
+          style={{ display: "none" }}
+        />
         <input
           className="db-bot-input"
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), sendMessage())}
-          placeholder="Ask about providers or your quotations…"
+          placeholder={attachedFile ? "Add a note (optional)…" : "Ask about providers, or drop a quotation PDF…"}
           disabled={loading}
         />
         <button
           className="db-icon-btn"
           onClick={() => sendMessage()}
-          disabled={!input.trim() || loading}
+          disabled={(!input.trim() && !attachedFile) || loading}
         >
           {Icon.send}
         </button>
       </div>
+
+      {/* ── Full-card drag overlay ── */}
+      {isDragging && (
+        <div className="db-bot-dropzone-overlay">
+          {Icon.upload}
+          <span>Drop your quotation PDF here</span>
+        </div>
+      )}
     </div>
   );
 }

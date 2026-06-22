@@ -1616,6 +1616,122 @@ input, select, textarea { font-family: 'Inter', sans-serif; }
     gap: 8px 18px;
   }
 }
+/* ─────────────────────────────────────────────────────────────────────────
+   FixHub Assistant — drag-and-drop PDF quotation upload
+   Append this block to dashboard.css
+───────────────────────────────────────────────────────────────────────── */
+
+/* Card becomes a positioning context for the overlay (set inline in JSX too,
+   but kept here in case you prefer to remove the inline style). */
+.db-bot {
+  position: relative;
+}
+
+/* Subtle highlight on the whole card while a file is being dragged over it */
+.db-bot--dragging {
+  outline: 2px dashed var(--info, #4c8bf5);
+  outline-offset: -2px;
+  background: color-mix(in srgb, var(--info, #4c8bf5) 4%, white);
+}
+
+/* Full-card overlay shown only while dragging */
+.db-bot-dropzone-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: color-mix(in srgb, var(--info, #4c8bf5) 8%, white 92%);
+  border-radius: var(--r, 14px);
+  color: var(--info, #4c8bf5);
+  font-weight: 700;
+  font-size: 13.5px;
+  pointer-events: none; /* let the drop event reach the card underneath */
+  backdrop-filter: blur(1px);
+}
+
+.db-bot-dropzone-overlay svg {
+  opacity: 0.85;
+}
+
+/* Pending attachment chip — shown above the input row before sending */
+.db-bot-file-chip--pending {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 2px 0;
+  padding: 7px 10px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--danger, #e5484d) 8%, white 92%);
+  border: 1px solid color-mix(in srgb, var(--danger, #e5484d) 25%, white 75%);
+  color: var(--ink2, #222);
+  font-size: 12.5px;
+}
+
+.db-bot-file-chip--pending svg {
+  color: var(--danger, #e5484d);
+  flex-shrink: 0;
+}
+
+.db-bot-file-chip-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.db-bot-file-chip-size {
+  color: var(--ink3, #888);
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.db-bot-file-chip-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--ink3, #888);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.db-bot-file-chip-remove:hover {
+  background: color-mix(in srgb, var(--danger, #e5484d) 14%, white 86%);
+  color: var(--danger, #e5484d);
+}
+
+/* File chip shown inside a sent user bubble, above the message text */
+.db-bot-file-chip--sent {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  padding: 5px 9px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.18);
+  font-size: 12px;
+  font-weight: 600;
+  width: fit-content;
+}
+
+.db-bot-row--user .db-bot-file-chip--sent {
+  background: rgba(255, 255, 255, 0.2);
+  color: inherit;
+}
+
+.db-bot-row--assistant .db-bot-file-chip--sent {
+  background: color-mix(in srgb, var(--ink4, #ddd) 30%, white 70%);
+  color: var(--ink2, #222);
+}
 /* ──────────────────────────────────────────────────────────────────────────
    Cancel actions — booking cards (ProviderDashboard) & task cards (dashboard)
    Both rely on the app's existing --danger, --ink-mid/--ink3, --r-sm /
